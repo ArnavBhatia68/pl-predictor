@@ -1,7 +1,16 @@
 import os
 from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+_PACKAGE_PROJECT_ROOT = Path(__file__).resolve().parents[2]
+_WORKING_PROJECT_ROOT = Path.cwd()
+_DEFAULT_PROJECT_ROOT = (
+    _WORKING_PROJECT_ROOT
+    if (_WORKING_PROJECT_ROOT / "models").exists()
+    else _PACKAGE_PROJECT_ROOT
+)
+PROJECT_ROOT = Path(
+    os.getenv("PL_PREDICTOR_PROJECT_ROOT", str(_DEFAULT_PROJECT_ROOT))
+).resolve()
 DATA_DIR = PROJECT_ROOT / "data"
 RAW_DIR = DATA_DIR / "raw"
 PROCESSED_DIR = DATA_DIR / "processed"
