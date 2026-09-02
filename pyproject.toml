@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pl-predictor"
+version = "0.8.0"
+description = "Leak-free Premier League match outcome prediction pipeline"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "joblib>=1.3",
+  "numpy>=1.26",
+  "pandas>=2.1",
+  "scikit-learn>=1.4",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "ruff>=0.6"]
+xgboost = ["xgboost>=2.0"]
+ml = ["xgboost>=2.0", "shap>=0.46"]
+api = ["fastapi>=0.115", "uvicorn[standard]>=0.34", "httpx>=0.28"]
+
+[project.scripts]
+pl-predictor = "pl_predictor.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
