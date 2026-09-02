@@ -13,7 +13,7 @@ services:
       - key: HISTORICAL_START_SEASON
         value: "2000"
       - key: AUTO_REFRESH_INTERVAL_HOURS
-        value: "6"
+        value: "0"
       - key: PL_PREDICTOR_DB_PATH
         value: /tmp/pl_predictor.sqlite3
       - key: FOOTBALL_DATA_API_TOKEN

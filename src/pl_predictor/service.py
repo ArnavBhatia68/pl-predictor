@@ -8,6 +8,7 @@ from typing import Any
 
 import joblib
 import numpy as np
+import pandas as pd
 
 from .config import MATCHES_PATH, V4_METRICS_PATH, V4_MODEL_PATH, V4_PREDICTIONS_PATH
 from .live import LiveFeatureState
@@ -53,6 +54,33 @@ def _load_model_artifact(model_path: Path) -> dict[str, Any]:
     return joblib.load(model_path)
 
 
+def _load_live_feature_state(
+    matches_path: Path,
+    state_path: Path,
+) -> LiveFeatureState:
+    match_dates = pd.read_csv(matches_path, usecols=["Date"])
+    latest_match_date = pd.to_datetime(match_dates["Date"], errors="raise").max()
+    match_count = len(match_dates)
+
+    if state_path.exists():
+        state = joblib.load(state_path)
+        if (
+            isinstance(state, LiveFeatureState)
+            and state.last_match_date == latest_match_date
+            and getattr(state, "match_count", None) == match_count
+        ):
+            return state
+
+    state = LiveFeatureState.from_csv(matches_path)
+    state.match_count = match_count
+    try:
+        joblib.dump(state, state_path, compress=3)
+    except OSError:
+        # A read-only deployment filesystem should not prevent predictions.
+        pass
+    return state
+
+
 class PredictionService:
     def __init__(
         self,
@@ -73,9 +101,13 @@ class PredictionService:
         model_path: Path = V4_MODEL_PATH,
         matches_path: Path = MATCHES_PATH,
         metrics_path: Path = V4_METRICS_PATH,
+        state_path: Path | None = None,
     ) -> PredictionService:
         artifact = _load_model_artifact(model_path)
-        state = LiveFeatureState.from_csv(matches_path)
+        state = _load_live_feature_state(
+            matches_path,
+            state_path or model_path.with_name("live_feature_state.joblib"),
+        )
         metrics = (
             json.loads(metrics_path.read_text(encoding="utf-8"))
             if metrics_path.exists()
