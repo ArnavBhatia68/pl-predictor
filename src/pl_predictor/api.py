@@ -80,18 +80,34 @@ def refresh_live_data(days_back: int = 3, days_ahead: int = 14) -> dict[str, Any
 
 async def _automatic_refresh_loop(interval_hours: float) -> None:
     while True:
+        await asyncio.sleep(interval_hours * 3600)
         try:
             result = await asyncio.to_thread(refresh_live_data)
             LOGGER.info("Automatic live refresh completed: %s", result)
         except Exception:
             LOGGER.exception("Automatic live refresh failed")
-        await asyncio.sleep(interval_hours * 3600)
+
+
+async def _initial_fixture_sync() -> None:
+    try:
+        result = await asyncio.to_thread(
+            get_fixture_tracker().sync,
+            get_fixture_provider(),
+        )
+        LOGGER.info("Initial fixture sync completed: %s", result)
+    except Exception:
+        LOGGER.exception("Initial fixture sync failed")
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    # Load the model and replay historical state exactly once before accepting
+    # concurrent health checks. On small instances, parallel cold loads can
+    # exhaust memory before the first result reaches the shared cache.
+    await asyncio.to_thread(get_prediction_service)
     interval_hours = float(os.getenv("AUTO_REFRESH_INTERVAL_HOURS", "0"))
-    task = (
+    fixture_sync_task = asyncio.create_task(_initial_fixture_sync())
+    refresh_task = (
         asyncio.create_task(_automatic_refresh_loop(interval_hours))
         if interval_hours > 0
         else None
@@ -99,10 +115,13 @@ async def lifespan(_: FastAPI):
     try:
         yield
     finally:
-        if task is not None:
-            task.cancel()
+        fixture_sync_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await fixture_sync_task
+        if refresh_task is not None:
+            refresh_task.cancel()
             with suppress(asyncio.CancelledError):
-                await task
+                await refresh_task
 
 
 PredictionServiceDependency = Annotated[PredictionService, Depends(get_prediction_service)]
