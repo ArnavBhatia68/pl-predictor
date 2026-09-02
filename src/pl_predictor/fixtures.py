@@ -78,23 +78,51 @@ class FootballDataOrgProvider:
             away_goals=self._score(match, "away"),
         )
 
-    def fetch_matches(self, date_from: date, date_to: date) -> list[Fixture]:
-        params = {"dateFrom": date_from.isoformat(), "dateTo": date_to.isoformat()}
+    def _get(self, path: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
         headers = {"X-Auth-Token": self.token}
         owns_client = self.client is None
         client = self.client or httpx.Client(timeout=20.0)
         try:
             try:
                 response = client.get(
-                    f"{self.base_url}/competitions/{self.competition}/matches",
+                    f"{self.base_url}/{path.lstrip('/')}",
                     params=params,
                     headers=headers,
                 )
                 response.raise_for_status()
-                payload = response.json()
+                return response.json()
             except httpx.HTTPError as exc:
-                raise RuntimeError("Fixture provider request failed") from exc
+                raise RuntimeError("Football data provider request failed") from exc
         finally:
             if owns_client:
                 client.close()
+
+    def fetch_matches(self, date_from: date, date_to: date) -> list[Fixture]:
+        params = {"dateFrom": date_from.isoformat(), "dateTo": date_to.isoformat()}
+        try:
+            payload = self._get(f"competitions/{self.competition}/matches", params)
+        except RuntimeError as exc:
+            raise RuntimeError("Fixture provider request failed") from exc
         return [self._fixture(match) for match in payload.get("matches", [])]
+
+    def fetch_scorers(self, limit: int = 100) -> list[dict[str, Any]]:
+        payload = self._get(
+            f"competitions/{self.competition}/scorers",
+            {"limit": min(max(limit, 1), 100)},
+        )
+        scorers: list[dict[str, Any]] = []
+        for entry in payload.get("scorers", []):
+            player = entry.get("player") or {}
+            team = entry.get("team") or {}
+            scorers.append(
+                {
+                    "player_id": player.get("id"),
+                    "name": player.get("name"),
+                    "position": player.get("position"),
+                    "team": team.get("name"),
+                    "goals": int(entry.get("goals") or 0),
+                    "assists": int(entry.get("assists") or 0),
+                    "penalties": int(entry.get("penalties") or 0),
+                }
+            )
+        return scorers

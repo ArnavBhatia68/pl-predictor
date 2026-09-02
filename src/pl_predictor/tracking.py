@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import math
+import os
 import sqlite3
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
+
+import httpx
 
 from .config import LIVE_DB_PATH
 from .fixtures import FINISHED_STATUSES, PREDICTABLE_STATUSES, Fixture, FixtureProvider
@@ -28,6 +31,7 @@ class PredictionStore:
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._initialize()
+        self._restore_remote_snapshot()
 
     def _connect(self) -> sqlite3.Connection:
         connection = sqlite3.connect(self.path)
@@ -80,6 +84,109 @@ class PredictionStore:
                     ON fixtures(status);
                 """
             )
+
+    def _restore_remote_snapshot(self) -> None:
+        """Restore the public, non-sensitive season snapshot into an empty store."""
+        snapshot_url = os.getenv("PREDICTION_SEED_URL")
+        if not snapshot_url:
+            return
+        with self._connect() as connection:
+            count = int(connection.execute("SELECT COUNT(*) FROM predictions").fetchone()[0])
+        if count:
+            return
+        try:
+            response = httpx.get(snapshot_url, timeout=8.0, follow_redirects=True)
+            if response.status_code == 404:
+                return
+            response.raise_for_status()
+            payload = response.json()
+            rows = payload.get("predictions", payload) if isinstance(payload, dict) else payload
+            if isinstance(rows, list):
+                self.import_snapshot(rows)
+        except (httpx.HTTPError, ValueError, TypeError):
+            # A missing snapshot must never prevent the API from starting.
+            return
+
+    def import_snapshot(self, rows: list[dict[str, Any]]) -> int:
+        imported = 0
+        with self._connect() as connection:
+            for row in rows:
+                required = {
+                    "fixture_key",
+                    "provider",
+                    "fixture_id",
+                    "competition",
+                    "season_start",
+                    "kickoff_utc",
+                    "status",
+                    "home_team",
+                    "away_team",
+                    "home_win",
+                    "draw",
+                    "away_win",
+                    "expected_home_goals",
+                    "expected_away_goals",
+                    "predicted_outcome",
+                    "predicted_score",
+                }
+                if not required.issubset(row):
+                    continue
+                connection.execute(
+                    """
+                    INSERT OR IGNORE INTO fixtures (
+                        fixture_key, provider, fixture_id, competition, season_start,
+                        matchday, kickoff_utc, status, home_team, away_team,
+                        home_goals, away_goals, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        row["fixture_key"],
+                        row["provider"],
+                        row["fixture_id"],
+                        row["competition"],
+                        row["season_start"],
+                        row.get("matchday"),
+                        row["kickoff_utc"],
+                        row["status"],
+                        row["home_team"],
+                        row["away_team"],
+                        row.get("home_goals"),
+                        row.get("away_goals"),
+                        row.get("updated_at") or _utc_now().isoformat(),
+                    ),
+                )
+                cursor = connection.execute(
+                    """
+                    INSERT OR IGNORE INTO predictions (
+                        fixture_key, created_at, model_version, data_as_of,
+                        home_win, draw, away_win, expected_home_goals, expected_away_goals,
+                        predicted_outcome, predicted_score, actual_outcome, correct,
+                        log_loss, brier_score, graded_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        row["fixture_key"],
+                        row.get("created_at")
+                        or row.get("prediction_created_at")
+                        or _utc_now().isoformat(),
+                        row.get("model_version", "v4-ensemble"),
+                        row.get("data_as_of", "unknown"),
+                        row["home_win"],
+                        row["draw"],
+                        row["away_win"],
+                        row["expected_home_goals"],
+                        row["expected_away_goals"],
+                        row["predicted_outcome"],
+                        row["predicted_score"],
+                        row.get("actual_outcome"),
+                        row.get("correct"),
+                        row.get("log_loss"),
+                        row.get("brier_score"),
+                        row.get("graded_at"),
+                    ),
+                )
+                imported += int(cursor.rowcount == 1)
+        return imported
 
     def upsert_fixture(self, fixture: Fixture, home_team: str, away_team: str) -> None:
         with self._connect() as connection:
@@ -215,11 +322,80 @@ class PredictionStore:
             (_utc_now().isoformat(), limit),
         )
 
+    def fixture(self, fixture_key: str) -> dict[str, Any] | None:
+        rows = self._query_rows(
+            """
+            SELECT f.*, p.created_at AS prediction_created_at,
+                   p.model_version, p.data_as_of, p.home_win, p.draw, p.away_win,
+                   p.expected_home_goals, p.expected_away_goals,
+                   p.predicted_outcome, p.predicted_score, p.actual_outcome,
+                   p.correct, p.log_loss, p.brier_score, p.graded_at
+            FROM fixtures f
+            LEFT JOIN predictions p USING (fixture_key)
+            WHERE f.fixture_key=?
+            """,
+            (fixture_key,),
+        )
+        return rows[0] if rows else None
+
+    def team_predictions(self, team: str, limit: int = 20) -> list[dict[str, Any]]:
+        return self._query_rows(
+            """
+            SELECT f.*, p.created_at AS prediction_created_at,
+                   p.model_version, p.data_as_of, p.home_win, p.draw, p.away_win,
+                   p.expected_home_goals, p.expected_away_goals,
+                   p.predicted_outcome, p.predicted_score, p.actual_outcome,
+                   p.correct, p.log_loss, p.brier_score, p.graded_at
+            FROM predictions p
+            JOIN fixtures f USING (fixture_key)
+            WHERE f.home_team=? OR f.away_team=?
+            ORDER BY f.kickoff_utc DESC
+            LIMIT ?
+            """,
+            (team, team, limit),
+        )
+
+    def matchweek_board(self) -> dict[str, Any]:
+        rows = self._query_rows(
+            """
+            SELECT f.*, p.created_at AS prediction_created_at,
+                   p.model_version, p.data_as_of, p.home_win, p.draw, p.away_win,
+                   p.expected_home_goals, p.expected_away_goals,
+                   p.predicted_outcome, p.predicted_score, p.actual_outcome,
+                   p.correct, p.log_loss, p.brier_score, p.graded_at
+            FROM fixtures f
+            LEFT JOIN predictions p USING (fixture_key)
+            ORDER BY f.kickoff_utc
+            """,
+            (),
+        )
+        upcoming = [row for row in rows if row["status"] in PREDICTABLE_STATUSES]
+        completed = [row for row in rows if row["status"] in FINISHED_STATUSES]
+        next_matchday = min(
+            (int(row["matchday"]) for row in upcoming if row["matchday"] is not None),
+            default=None,
+        )
+        previous_matchday = max(
+            (int(row["matchday"]) for row in completed if row["matchday"] is not None),
+            default=None,
+        )
+        return {
+            "next_matchday": next_matchday,
+            "previous_matchday": previous_matchday,
+            "upcoming": [
+                row for row in upcoming if next_matchday is None or row["matchday"] == next_matchday
+            ],
+            "previous_results": [
+                row
+                for row in completed
+                if previous_matchday is None or row["matchday"] == previous_matchday
+            ],
+        }
+
     def prediction_history(self, limit: int = 100) -> list[dict[str, Any]]:
         return self._query_rows(
             """
-            SELECT f.fixture_key, f.kickoff_utc, f.status, f.home_team, f.away_team,
-                   f.home_goals, f.away_goals, p.*
+            SELECT f.*, p.*
             FROM predictions p
             JOIN fixtures f USING (fixture_key)
             ORDER BY f.kickoff_utc DESC

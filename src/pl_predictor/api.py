@@ -4,8 +4,9 @@ import asyncio
 import logging
 import os
 import secrets
+import threading
 from contextlib import asynccontextmanager, suppress
-from datetime import date
+from datetime import UTC, date, datetime
 from functools import lru_cache
 from typing import Annotated, Any
 
@@ -13,6 +14,7 @@ from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
+from .analytics import AnalyticsService
 from .data import _current_season_start, build_match_dataset
 from .fixtures import FootballDataOrgProvider
 from .service import PredictionService
@@ -29,8 +31,8 @@ class PredictionRequest(BaseModel):
 
 
 class FixtureSyncRequest(BaseModel):
-    days_back: int = Field(default=3, ge=0, le=30)
-    days_ahead: int = Field(default=14, ge=1, le=60)
+    days_back: int = Field(default=21, ge=0, le=30)
+    days_ahead: int = Field(default=28, ge=1, le=60)
 
 
 @lru_cache(maxsize=1)
@@ -41,6 +43,11 @@ def get_prediction_service() -> PredictionService:
 @lru_cache(maxsize=1)
 def get_fixture_tracker() -> FixtureTracker:
     return FixtureTracker(get_prediction_service(), PredictionStore())
+
+
+@lru_cache(maxsize=1)
+def get_analytics_service() -> AnalyticsService:
+    return AnalyticsService()
 
 
 def get_fixture_provider() -> FootballDataOrgProvider:
@@ -60,22 +67,94 @@ def require_sync_key(
         raise HTTPException(status_code=401, detail="Invalid sync key")
 
 
-def refresh_live_data(days_back: int = 3, days_ahead: int = 14) -> dict[str, Any]:
+_refresh_lock = threading.Lock()
+_refresh_status: dict[str, Any] = {
+    "state": "waiting",
+    "started_at": None,
+    "completed_at": None,
+    "error": None,
+    "result": None,
+}
+_players_by_team: dict[str, list[dict[str, Any]]] = {}
+_player_feed_status: dict[str, Any] = {
+    "available": False,
+    "reason": "Player statistics have not been refreshed yet.",
+}
+
+
+def refresh_status() -> dict[str, Any]:
+    return dict(_refresh_status)
+
+
+def refresh_live_data(days_back: int = 21, days_ahead: int = 28) -> dict[str, Any]:
     """Refresh the current season before syncing and grading live fixtures."""
-    start_season = int(os.getenv("HISTORICAL_START_SEASON", "2000"))
-    end_season = int(os.getenv("CURRENT_SEASON_START", str(_current_season_start())))
-    build_match_dataset(
-        start_season=start_season,
-        end_season=end_season,
-        refresh_current=True,
+    if not _refresh_lock.acquire(blocking=False):
+        return {"skipped": True, "reason": "refresh already running", **refresh_status()}
+    _refresh_status.update(
+        state="running",
+        started_at=datetime.now(UTC).isoformat(),
+        error=None,
     )
-    get_prediction_service().refresh_state()
-    get_fixture_tracker.cache_clear()
-    return get_fixture_tracker().sync(
-        get_fixture_provider(),
-        days_back=days_back,
-        days_ahead=days_ahead,
-    )
+    try:
+        start_season = int(os.getenv("HISTORICAL_START_SEASON", "2000"))
+        end_season = int(os.getenv("CURRENT_SEASON_START", str(_current_season_start())))
+        build_match_dataset(
+            start_season=start_season,
+            end_season=end_season,
+            refresh_current=True,
+        )
+        get_prediction_service().refresh_state()
+        get_analytics_service().reload()
+        get_fixture_tracker.cache_clear()
+        provider = get_fixture_provider()
+        result = get_fixture_tracker().sync(
+            provider,
+            days_back=days_back,
+            days_ahead=days_ahead,
+        )
+        try:
+            grouped: dict[str, list[dict[str, Any]]] = {}
+            for scorer in provider.fetch_scorers(100):
+                if not scorer.get("team") or not scorer.get("name"):
+                    continue
+                try:
+                    team = get_prediction_service().resolve_team(str(scorer["team"]))
+                except ValueError:
+                    continue
+                grouped.setdefault(team, []).append(scorer)
+            for players in grouped.values():
+                players.sort(
+                    key=lambda player: (player["goals"], player["assists"]),
+                    reverse=True,
+                )
+            _players_by_team.clear()
+            _players_by_team.update(grouped)
+            _player_feed_status.update(
+                available=bool(grouped),
+                reason=None if grouped else "No current scorer records were returned.",
+            )
+        except RuntimeError:
+            _player_feed_status.update(
+                available=False,
+                reason=(
+                    "The connected football-data.org plan does not expose the current scorer feed."
+                ),
+            )
+        _refresh_status.update(
+            state="ready",
+            completed_at=datetime.now(UTC).isoformat(),
+            result=result,
+        )
+        return result
+    except Exception as exc:
+        _refresh_status.update(
+            state="error",
+            completed_at=datetime.now(UTC).isoformat(),
+            error=str(exc),
+        )
+        raise
+    finally:
+        _refresh_lock.release()
 
 
 async def _automatic_refresh_loop(interval_hours: float) -> None:
@@ -90,11 +169,8 @@ async def _automatic_refresh_loop(interval_hours: float) -> None:
 
 async def _initial_fixture_sync() -> None:
     try:
-        result = await asyncio.to_thread(
-            get_fixture_tracker().sync,
-            get_fixture_provider(),
-        )
-        LOGGER.info("Initial fixture sync completed: %s", result)
+        result = await asyncio.to_thread(refresh_live_data)
+        LOGGER.info("Initial live refresh completed: %s", result)
     except Exception:
         LOGGER.exception("Initial fixture sync failed")
 
@@ -108,9 +184,7 @@ async def lifespan(_: FastAPI):
     interval_hours = float(os.getenv("AUTO_REFRESH_INTERVAL_HOURS", "0"))
     fixture_sync_task = asyncio.create_task(_initial_fixture_sync())
     refresh_task = (
-        asyncio.create_task(_automatic_refresh_loop(interval_hours))
-        if interval_hours > 0
-        else None
+        asyncio.create_task(_automatic_refresh_loop(interval_hours)) if interval_hours > 0 else None
     )
     try:
         yield
@@ -127,12 +201,13 @@ async def lifespan(_: FastAPI):
 PredictionServiceDependency = Annotated[PredictionService, Depends(get_prediction_service)]
 FixtureTrackerDependency = Annotated[FixtureTracker, Depends(get_fixture_tracker)]
 FixtureProviderDependency = Annotated[FootballDataOrgProvider, Depends(get_fixture_provider)]
+AnalyticsServiceDependency = Annotated[AnalyticsService, Depends(get_analytics_service)]
 SyncKeyDependency = Annotated[None, Depends(require_sync_key)]
 
 
 app = FastAPI(
     title="PL Predictor API",
-    version="0.8.0",
+    version="0.9.0",
     description=(
         "Leak-free Premier League probabilities, upcoming fixtures, and immutable "
         "pre-match prediction tracking."
@@ -142,9 +217,9 @@ app = FastAPI(
 
 origins = [
     origin.strip()
-    for origin in os.getenv(
-        "CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000"
-    ).split(",")
+    for origin in os.getenv("CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000").split(
+        ","
+    )
     if origin.strip()
 ]
 app.add_middleware(
@@ -160,7 +235,7 @@ app.add_middleware(
 def root() -> dict[str, Any]:
     return {
         "name": "PL Predictor API",
-        "version": "0.8.0",
+        "version": "0.9.0",
         "docs": "/docs",
         "health": "/health",
     }
@@ -175,12 +250,34 @@ def health(service: PredictionServiceDependency) -> dict[str, Any]:
         "data_as_of": service.state.last_match_date.date().isoformat()
         if service.state.last_match_date is not None
         else None,
+        "refresh": refresh_status(),
     }
 
 
 @app.get("/teams")
 def teams(service: PredictionServiceDependency) -> dict[str, Any]:
     return {"season": service.state.active_season_label, "teams": service.teams}
+
+
+@app.get("/teams/{team}")
+def team_intelligence(
+    team: str,
+    service: PredictionServiceDependency,
+    analytics: AnalyticsServiceDependency,
+    tracker: FixtureTrackerDependency,
+) -> dict[str, Any]:
+    try:
+        resolved = service.resolve_team(team)
+        profile = analytics.team_profile(resolved)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return {
+        **profile,
+        "predictions": tracker.store.team_predictions(resolved, 20),
+        "data_as_of": service.state.last_match_date.date().isoformat()
+        if service.state.last_match_date is not None
+        else None,
+    }
 
 
 @app.post("/predict")
@@ -220,6 +317,55 @@ def upcoming_fixtures(
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
 ) -> dict[str, Any]:
     return {"fixtures": tracker.store.upcoming(limit)}
+
+
+@app.get("/fixtures/{fixture_key}")
+def fixture_intelligence(
+    fixture_key: str,
+    tracker: FixtureTrackerDependency,
+    analytics: AnalyticsServiceDependency,
+) -> dict[str, Any]:
+    fixture = tracker.store.fixture(fixture_key)
+    if fixture is None:
+        raise HTTPException(status_code=404, detail="Fixture not found")
+    try:
+        intelligence = analytics.match_center(fixture["home_team"], fixture["away_team"])
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    players = [
+        {**player, "team": team}
+        for team in (fixture["home_team"], fixture["away_team"])
+        for player in _players_by_team.get(team, [])[:3]
+    ]
+    intelligence["players_to_watch"] = {
+        **_player_feed_status,
+        "players": players,
+    }
+    return {"fixture": fixture, **intelligence}
+
+
+@app.get("/dashboard")
+def dashboard(
+    service: PredictionServiceDependency,
+    analytics: AnalyticsServiceDependency,
+    tracker: FixtureTrackerDependency,
+) -> dict[str, Any]:
+    return {
+        "season": analytics.season_label,
+        "data_as_of": service.state.last_match_date.date().isoformat()
+        if service.state.last_match_date is not None
+        else None,
+        "matchweek": tracker.store.matchweek_board(),
+        "table": analytics.table(),
+        "record": tracker.store.record(),
+        "model": service.performance(),
+        "refresh": refresh_status(),
+    }
+
+
+@app.get("/refresh-status")
+def get_refresh_status() -> dict[str, Any]:
+    return refresh_status()
 
 
 @app.post("/fixtures/sync")

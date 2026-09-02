@@ -47,6 +47,32 @@ class FixtureProviderTests(unittest.TestCase):
         with patch.dict("os.environ", {}, clear=True), self.assertRaises(ValueError):
             FootballDataOrgProvider(token="")
 
+    def test_scorers_are_normalized(self) -> None:
+        def handler(request: httpx.Request) -> httpx.Response:
+            self.assertEqual(request.url.path, "/v4/competitions/PL/scorers")
+            return httpx.Response(
+                200,
+                json={
+                    "scorers": [
+                        {
+                            "player": {"id": 7, "name": "Example Forward", "position": "Offence"},
+                            "team": {"name": "Chelsea FC"},
+                            "goals": 4,
+                            "assists": 2,
+                            "penalties": 1,
+                        }
+                    ]
+                },
+            )
+
+        client = httpx.Client(transport=httpx.MockTransport(handler))
+        provider = FootballDataOrgProvider(token="secret", client=client)
+        scorer = provider.fetch_scorers()[0]
+        self.assertEqual(scorer["name"], "Example Forward")
+        self.assertEqual(scorer["team"], "Chelsea FC")
+        self.assertEqual(scorer["goals"], 4)
+        client.close()
+
     def test_provider_error_is_safe_and_actionable(self) -> None:
         client = httpx.Client(
             transport=httpx.MockTransport(lambda request: httpx.Response(429, request=request))

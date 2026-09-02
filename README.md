@@ -347,9 +347,9 @@ npm run dev
 ```
 
 `NEXT_PUBLIC_API_BASE_URL` should contain the FastAPI origin, such as `http://localhost:8000`.
-Without that variable, the dashboard uses clearly labeled representative demo data. When the
-frontend and backend use different origins, add the frontend origin to `CORS_ORIGINS` before
-starting FastAPI.
+Without that variable, the dashboard shows a data-feed error and never substitutes invented
+numbers. When the frontend and backend use different origins, add the frontend origin to
+`CORS_ORIGINS` before starting FastAPI.
 
 The current 2026/27 season is downloaded and used to update current team state later, but it is
 excluded from V1 model evaluation because it is incomplete.
@@ -393,9 +393,40 @@ curl -X POST http://localhost:8000/admin/refresh \
   -d '{"days_back":3,"days_ahead":14}'
 ```
 
-`render.yaml` describes the Render web service. The free Render filesystem is ephemeral, so the
-SQLite prediction ledger can reset after a restart or redeploy. Use a persistent disk or move the
-ledger to PostgreSQL before treating the history as permanent production data.
+`render.yaml` describes the Render web service. The local SQLite ledger is still ephemeral on the
+free instance; V9 adds an automated public-data snapshot and restore layer around it.
+
+## V9 matchweek intelligence and reliability
+
+V9 turns the dashboard into a full matchweek intelligence surface:
+
+- current Premier League table, points per game, goal difference, and recent form;
+- all fixtures in the next matchweek and the previous matchweek's prediction review;
+- full match centres with last-10 form, historical head-to-head, outcome probabilities,
+  expected goals, and forecasts for shots, shots on target, corners, fouls, cards, and red-card
+  probability;
+- one profile for every active team with its last 10 performances and stored model calls;
+- an immutable prediction history mirrored into the dashboard's managed D1 database.
+
+The backend refreshes the detailed current-season match file before it creates new predictions.
+The scheduled GitHub workflow wakes the sleeping free Render instance every six hours, waits for
+the refresh to finish, then writes the non-sensitive prediction ledger to the `live-data` branch.
+On a fresh container, the API restores that ledger before syncing fixtures, so a restart cannot
+silently replace or erase earlier pre-match probabilities.
+
+Possession is deliberately not forecast because the historical training source does not contain
+possession labels. Player watch lists use football-data.org's scorer endpoint when the connected
+plan exposes it; otherwise the API returns an explicit availability reason instead of fabricating
+players or statistics.
+
+Additional V9 endpoints:
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /dashboard` | Matchweek board, previous results, table, record, and model status |
+| `GET /fixtures/{fixture_key}` | Match centre, H2H, team form, and stat forecasts |
+| `GET /teams/{team}` | Team profile, last 10 performances, and prediction history |
+| `GET /refresh-status` | Scheduled refresh readiness and last result |
 
 ## Why the chronology matters
 
@@ -436,8 +467,8 @@ python -m unittest discover -s tests -v
 1. Add rest days, promoted-team initialization, managerial changes, and squad-availability data.
 2. Compare against bookmaker implied probabilities as a benchmark, never as training inputs.
 3. Add rolling-origin probability calibration across multiple seasons.
-4. Run fixture refresh and detailed-stat refresh as private scheduled jobs.
-5. Deploy FastAPI and connect the hosted dashboard to its public API origin.
+4. Add a richer provider for historical possession, lineups, injuries, and player-level form.
+5. Compare the descriptive stat forecasts with independently trained count regressors.
 
 Data source: [Football-Data.co.uk](https://www.football-data.co.uk/data.php). Credit the source
 when publishing analysis or derived datasets.
