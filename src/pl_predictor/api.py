@@ -69,7 +69,7 @@ def refresh_live_data(days_back: int = 3, days_ahead: int = 14) -> dict[str, Any
         end_season=end_season,
         refresh_current=True,
     )
-    get_prediction_service.cache_clear()
+    get_prediction_service().refresh_state()
     get_fixture_tracker.cache_clear()
     return get_fixture_tracker().sync(
         get_fixture_provider(),

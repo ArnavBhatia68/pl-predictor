@@ -58,20 +58,39 @@ def _load_live_feature_state(
     matches_path: Path,
     state_path: Path,
 ) -> LiveFeatureState:
-    match_dates = pd.read_csv(matches_path, usecols=["Date"])
-    latest_match_date = pd.to_datetime(match_dates["Date"], errors="raise").max()
-    match_count = len(match_dates)
+    matches = pd.read_csv(matches_path)
+    matches["Date"] = pd.to_datetime(matches["Date"], errors="raise")
+    latest_match_date = matches["Date"].max()
+    match_count = len(matches)
 
     if state_path.exists():
         state = joblib.load(state_path)
+        processed_count = getattr(state, "match_count", None)
         if (
             isinstance(state, LiveFeatureState)
             and state.last_match_date == latest_match_date
-            and getattr(state, "match_count", None) == match_count
+            and processed_count == match_count
         ):
             return state
+        if (
+            isinstance(state, LiveFeatureState)
+            and isinstance(processed_count, int)
+            and 0 < processed_count < match_count
+        ):
+            new_matches = matches.iloc[processed_count:].copy()
+            if (
+                state.last_match_date is not None
+                and new_matches["Date"].min() >= state.last_match_date
+            ):
+                state.replay(new_matches)
+                state.match_count = match_count
+                try:
+                    joblib.dump(state, state_path, compress=3)
+                except OSError:
+                    pass
+                return state
 
-    state = LiveFeatureState.from_csv(matches_path)
+    state = LiveFeatureState().replay(matches)
     state.match_count = match_count
     try:
         joblib.dump(state, state_path, compress=3)
@@ -125,6 +144,16 @@ class PredictionService:
             return exact[normalized]
         raise ValueError(
             f"Unknown team '{name}'. Use one of: {', '.join(self.state.available_teams)}"
+        )
+
+    def refresh_state(
+        self,
+        matches_path: Path = MATCHES_PATH,
+        state_path: Path | None = None,
+    ) -> None:
+        self.state = _load_live_feature_state(
+            matches_path,
+            state_path or V4_MODEL_PATH.with_name("live_feature_state.joblib"),
         )
 
     @property
