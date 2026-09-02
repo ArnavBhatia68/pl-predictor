@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import sys
 from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
@@ -10,7 +11,6 @@ import numpy as np
 
 from .config import MATCHES_PATH, V4_METRICS_PATH, V4_MODEL_PATH, V4_PREDICTIONS_PATH
 from .live import LiveFeatureState
-
 
 TEAM_ALIASES = {
     "arsenal fc": "Arsenal",
@@ -43,6 +43,16 @@ TEAM_ALIASES = {
 }
 
 
+def _load_model_artifact(model_path: Path) -> dict[str, Any]:
+    """Load models created where sklearn's loss extension had a top-level alias."""
+    from sklearn._loss import _loss as sklearn_loss_extension
+
+    # The training runtime serialized this Cython extension as ``_loss`` while
+    # standard scikit-learn wheels expose it as ``sklearn._loss._loss``.
+    sys.modules.setdefault("_loss", sklearn_loss_extension)
+    return joblib.load(model_path)
+
+
 class PredictionService:
     def __init__(
         self,
@@ -63,8 +73,8 @@ class PredictionService:
         model_path: Path = V4_MODEL_PATH,
         matches_path: Path = MATCHES_PATH,
         metrics_path: Path = V4_METRICS_PATH,
-    ) -> "PredictionService":
-        artifact = joblib.load(model_path)
+    ) -> PredictionService:
+        artifact = _load_model_artifact(model_path)
         state = LiveFeatureState.from_csv(matches_path)
         metrics = (
             json.loads(metrics_path.read_text(encoding="utf-8"))
