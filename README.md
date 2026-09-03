@@ -305,7 +305,7 @@ pl-predictor sync-fixtures --days-back 3 --days-ahead 14
 Each sync performs four operations:
 
 1. Upserts scheduled and completed fixtures using the provider's stable fixture ID.
-2. Creates one prediction for every future fixture that does not already have one.
+2. Publishes predictions only for the next matchweek when its first kickoff is within three days.
 3. Never overwrites that pre-match prediction on later syncs.
 4. Grades completed fixtures for correctness, multiclass log loss, and Brier score.
 
@@ -370,7 +370,7 @@ Required server variables:
 | `FOOTBALL_DATA_API_TOKEN` | Server-only football-data.org token |
 | `SYNC_API_KEY` | Secret for protected refresh endpoints |
 | `AUTO_REFRESH_INTERVAL_HOURS` | Refresh cadence; `0` disables the background loop |
-| `CURRENT_SEASON_START` | Current season start year, for example `2026` |
+| `PREDICTION_PUBLISH_LEAD_DAYS` | Days before the next matchweek when official picks are locked |
 | `PL_PREDICTOR_DB_PATH` | SQLite ledger path |
 
 Run the production image locally with:
@@ -427,6 +427,25 @@ Additional V9 endpoints:
 | `GET /fixtures/{fixture_key}` | Match centre, H2H, team form, and stat forecasts |
 | `GET /teams/{team}` | Team profile, last 10 performances, and prediction history |
 | `GET /refresh-status` | Scheduled refresh readiness and last result |
+
+## V10 official publication and season-long evaluation
+
+V10 prevents distant fixtures from being locked with stale form. The schedule remains visible,
+but an official prediction is created only for the immediately upcoming matchweek once its first
+kickoff is within the configured three-day window. Any old, premature future predictions are
+retired and regenerated when their matchweek becomes official. Once published in the valid
+window, the probability remains immutable.
+
+The prediction ledger now also stores the pre-match shots, shots-on-target, corners, fouls, and
+yellow-card forecasts. After the detailed result arrives, it records the observed values and
+generates a deterministic statistical review explaining the largest misses without an AI service.
+The dashboard exposes cumulative season history, per-team accuracy, log loss, Brier score, and
+goal error. Its managed database keeps every graded prediction rather than limiting history to a
+fixed number of matchweeks.
+
+The current season start is determined automatically from the calendar. At a season boundary,
+the live state regresses Elo ratings, resets season form, and can register the new fixture list
+before the first completed result exists, so no annual environment-variable edit is required.
 
 ## Why the chronology matters
 

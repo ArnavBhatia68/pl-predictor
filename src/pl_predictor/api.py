@@ -42,7 +42,12 @@ def get_prediction_service() -> PredictionService:
 
 @lru_cache(maxsize=1)
 def get_fixture_tracker() -> FixtureTracker:
-    return FixtureTracker(get_prediction_service(), PredictionStore())
+    return FixtureTracker(
+        get_prediction_service(),
+        PredictionStore(),
+        get_analytics_service(),
+        publication_lead_days=int(os.getenv("PREDICTION_PUBLISH_LEAD_DAYS", "3")),
+    )
 
 
 @lru_cache(maxsize=1)
@@ -207,7 +212,7 @@ SyncKeyDependency = Annotated[None, Depends(require_sync_key)]
 
 app = FastAPI(
     title="PL Predictor API",
-    version="0.9.0",
+    version="0.10.0",
     description=(
         "Leak-free Premier League probabilities, upcoming fixtures, and immutable "
         "pre-match prediction tracking."
@@ -235,7 +240,7 @@ app.add_middleware(
 def root() -> dict[str, Any]:
     return {
         "name": "PL Predictor API",
-        "version": "0.9.0",
+        "version": "0.10.0",
         "docs": "/docs",
         "health": "/health",
     }
@@ -273,7 +278,8 @@ def team_intelligence(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     return {
         **profile,
-        "predictions": tracker.store.team_predictions(resolved, 20),
+        "predictions": tracker.store.team_predictions(resolved, 1000),
+        "model_record": tracker.store.team_record(resolved, analytics.season_start),
         "data_as_of": service.state.last_match_date.date().isoformat()
         if service.state.last_match_date is not None
         else None,
@@ -341,6 +347,16 @@ def fixture_intelligence(
         **_player_feed_status,
         "players": players,
     }
+    for metric in ("shots", "shots_on_target", "corners", "fouls", "yellow_cards"):
+        home_value = fixture.get(f"predicted_home_{metric}")
+        away_value = fixture.get(f"predicted_away_{metric}")
+        if home_value is not None and away_value is not None:
+            intelligence["stat_forecast"][metric] = {
+                "home": home_value,
+                "away": away_value,
+                "total": round(float(home_value) + float(away_value), 1),
+                "method": "locked with the official pre-match prediction",
+            }
     return {"fixture": fixture, **intelligence}
 
 
@@ -352,12 +368,15 @@ def dashboard(
 ) -> dict[str, Any]:
     return {
         "season": analytics.season_label,
+        "season_start": analytics.season_start,
         "data_as_of": service.state.last_match_date.date().isoformat()
         if service.state.last_match_date is not None
         else None,
         "matchweek": tracker.store.matchweek_board(),
         "table": analytics.table(),
-        "record": tracker.store.record(),
+        "record": tracker.store.record(analytics.season_start),
+        "team_records": tracker.store.team_records(analytics.season_start),
+        "publication": (refresh_status().get("result") or {}).get("publication"),
         "model": service.performance(),
         "refresh": refresh_status(),
     }
@@ -407,5 +426,14 @@ def live_predictions(
 @app.get("/season-record")
 def season_record(
     tracker: FixtureTrackerDependency,
+    service: PredictionServiceDependency,
+    team: str | None = None,
 ) -> dict[str, Any]:
-    return tracker.store.record()
+    if team is None:
+        season_start = service.state.active_season
+        return tracker.store.record(season_start)
+    try:
+        resolved = service.resolve_team(team)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return tracker.store.team_record(resolved, service.state.active_season)

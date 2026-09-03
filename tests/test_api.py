@@ -17,6 +17,7 @@ from pl_predictor.api import (
 
 class StubState:
     active_season_label = "2026/27"
+    active_season = 2026
     last_match_date = None
 
 
@@ -43,8 +44,14 @@ class StubStore:
     def prediction_history(self, limit=100):
         return [{"fixture_key": "test:1", "correct": 1}][:limit]
 
-    def record(self):
+    def record(self, season_start=None):
         return {"predictions": 1, "graded": 1, "accuracy": 1.0}
+
+    def team_record(self, team, season_start=None):
+        return {"team": team, "predictions": 1, "graded": 1, "accuracy": 1.0}
+
+    def team_records(self, season_start=None):
+        return [self.team_record("Chelsea", season_start)]
 
 
 class StubTracker:

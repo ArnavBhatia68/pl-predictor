@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import sys
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -135,16 +135,40 @@ class PredictionService:
         return cls(artifact, state, metrics)
 
     def resolve_team(self, name: str) -> str:
+        return self._canonical_team(name, require_active=True)
+
+    def _canonical_team(self, name: str, *, require_active: bool) -> str:
         normalized = " ".join(name.lower().strip().split())
         alias = TEAM_ALIASES.get(normalized)
-        if alias in self.state.available_teams:
+        known_teams = set(self.state.available_teams) | set(self.state.elo.ratings)
+        if alias and (not require_active or alias in self.state.available_teams):
             return alias
-        exact = {team.lower(): team for team in self.state.available_teams}
+        exact = {team.lower(): team for team in known_teams}
         if normalized in exact:
-            return exact[normalized]
+            candidate = exact[normalized]
+            if not require_active or candidate in self.state.available_teams:
+                return candidate
+        simplified = normalized
+        for suffix in (" football club", " fc", " afc"):
+            if simplified.endswith(suffix):
+                simplified = simplified.removesuffix(suffix).strip()
+                break
+        if simplified in exact:
+            candidate = exact[simplified]
+            if not require_active or candidate in self.state.available_teams:
+                return candidate
+        if not require_active:
+            return " ".join(part.capitalize() for part in simplified.split())
         raise ValueError(
             f"Unknown team '{name}'. Use one of: {', '.join(self.state.available_teams)}"
         )
+
+    def prepare_season(self, season_start: int, team_names: list[str]) -> None:
+        teams = [
+            self._canonical_team(name, require_active=False)
+            for name in team_names
+        ]
+        self.state.prepare_season(season_start, teams)
 
     def refresh_state(
         self,
@@ -182,8 +206,9 @@ class PredictionService:
         away = self.resolve_team(away_team)
         if home == away:
             raise ValueError("Home and away teams must be different")
-        latest = self.state.last_match_date.date() if self.state.last_match_date is not None else date.today()
-        fixture_date = fixture_date or max(date.today(), latest + timedelta(days=1))
+        today = datetime.now(UTC).date()
+        latest = self.state.last_match_date.date() if self.state.last_match_date is not None else today
+        fixture_date = fixture_date or max(today, latest + timedelta(days=1))
         frame = self.state.fixture_features(home, away, fixture_date, season_start)
 
         ensemble = self.model.predict_proba(frame)[0]

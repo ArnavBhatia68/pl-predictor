@@ -41,6 +41,31 @@ class FakePredictionService:
         }
 
 
+class FakeAnalytics:
+    def stat_forecast(self, home, away):
+        return {
+            "shots": {"home": 14.0, "away": 10.0},
+            "shots_on_target": {"home": 5.0, "away": 3.0},
+            "corners": {"home": 6.0, "away": 4.0},
+            "fouls": {"home": 10.0, "away": 12.0},
+            "yellow_cards": {"home": 2.0, "away": 3.0},
+        }
+
+    def completed_match_stats(self, home, away, kickoff):
+        return {
+            "home_shots": 18.0,
+            "away_shots": 7.0,
+            "home_shots_on_target": 8.0,
+            "away_shots_on_target": 2.0,
+            "home_corners": 7.0,
+            "away_corners": 2.0,
+            "home_fouls": 9.0,
+            "away_fouls": 14.0,
+            "home_yellow_cards": 1.0,
+            "away_yellow_cards": 4.0,
+        }
+
+
 def fixture(
     status="TIMED",
     home_goals=None,
@@ -75,7 +100,8 @@ class TrackingTests(unittest.TestCase):
         self.temporary_directory.cleanup()
 
     def test_prediction_is_saved_once_then_graded(self):
-        before_kickoff = datetime(2026, 9, 2, 12, tzinfo=UTC)
+        self.tracker.analytics = FakeAnalytics()
+        before_kickoff = datetime(2026, 9, 8, 12, tzinfo=UTC)
         first = self.tracker.sync(FakeProvider([fixture()]), now=before_kickoff)
         second = self.tracker.sync(FakeProvider([fixture()]), now=before_kickoff)
         self.assertEqual(first["new_predictions"], 1)
@@ -93,7 +119,47 @@ class TrackingTests(unittest.TestCase):
         self.assertEqual(history[0]["correct"], 1)
         self.assertAlmostEqual(history[0]["log_loss"], -math.log(0.6))
         self.assertAlmostEqual(history[0]["brier_score"], 0.245)
+        self.assertEqual(history[0]["predicted_home_shots"], 14.0)
+        self.assertEqual(history[0]["actual_home_shots"], 18.0)
+        self.assertIn("Largest statistical misses", history[0]["review_summary"])
         self.assertEqual(self.store.record()["accuracy"], 1.0)
+        self.assertEqual(self.store.team_record("Chelsea")["accuracy"], 1.0)
+
+    def test_prediction_waits_for_three_day_publication_window(self):
+        too_early = datetime(2026, 9, 2, 12, tzinfo=UTC)
+        result = self.tracker.sync(FakeProvider([fixture()]), now=too_early)
+        self.assertEqual(result["new_predictions"], 0)
+        self.assertFalse(result["publication"]["is_open"])
+        self.assertEqual(self.store.prediction_history(), [])
+
+    def test_only_next_matchweek_is_published_and_early_future_pick_is_retired(self):
+        gameweek_four = fixture(kickoff=datetime(2026, 9, 10, 18, tzinfo=UTC))
+        gameweek_five = Fixture(
+            **{
+                **fixture(
+                    fixture_id="2",
+                    kickoff=datetime(2026, 9, 17, 18, tzinfo=UTC),
+                ).__dict__,
+                "matchday": 5,
+            }
+        )
+        prediction = self.service.predict("Chelsea", "Arsenal")
+        prediction["prediction"]["most_likely_outcome"] = "home_win"
+        self.store.upsert_fixture(gameweek_five, "Chelsea", "Arsenal")
+        self.store.save_prediction(
+            gameweek_five.key,
+            prediction,
+            created_at=datetime(2026, 9, 2, tzinfo=UTC),
+        )
+
+        result = self.tracker.sync(
+            FakeProvider([gameweek_four, gameweek_five]),
+            now=datetime(2026, 9, 8, 12, tzinfo=UTC),
+        )
+        history = self.store.prediction_history()
+        self.assertEqual(result["retired_predictions"], 1)
+        self.assertEqual(result["new_predictions"], 1)
+        self.assertEqual([row["fixture_key"] for row in history], [gameweek_four.key])
 
     def test_unknown_provider_team_is_skipped(self):
         class RejectingService(FakePredictionService):
@@ -112,7 +178,7 @@ class TrackingTests(unittest.TestCase):
         completed = fixture("FINISHED", 2, 0)
         scheduled = fixture(
             fixture_id="2",
-            kickoff=datetime(2026, 9, 20, 18, tzinfo=UTC),
+            kickoff=datetime(2026, 9, 13, 18, tzinfo=UTC),
         )
         result = self.tracker.sync(
             FakeProvider([completed, scheduled]),

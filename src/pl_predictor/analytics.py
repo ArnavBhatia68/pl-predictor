@@ -250,6 +250,39 @@ class AnalyticsService:
         }
         return forecasts
 
+    def completed_match_stats(
+        self,
+        home_team: str,
+        away_team: str,
+        kickoff_utc: str,
+    ) -> dict[str, float] | None:
+        """Return the detailed observed stats for a completed fixture.
+
+        The fixture provider includes a kickoff timestamp while the historical
+        results feed stores a date, so a small tolerance handles occasional
+        provider date corrections without matching a different meeting.
+        """
+        target = pd.Timestamp(kickoff_utc).tz_localize(None).normalize()
+        candidates = self.current[
+            (self.current["HomeTeam"] == home_team)
+            & (self.current["AwayTeam"] == away_team)
+        ].copy()
+        if candidates.empty:
+            return None
+        candidates["date_distance"] = (candidates["Date"].dt.normalize() - target).abs()
+        candidates = candidates[candidates["date_distance"] <= pd.Timedelta(days=3)]
+        if candidates.empty:
+            return None
+        row = candidates.sort_values("date_distance").iloc[0]
+        output: dict[str, float] = {}
+        for label, (home_column, away_column) in STAT_KEYS.items():
+            home_value, away_value = row.get(home_column), row.get(away_column)
+            if not pd.isna(home_value):
+                output[f"home_{label}"] = float(home_value)
+            if not pd.isna(away_value):
+                output[f"away_{label}"] = float(away_value)
+        return output
+
     def match_center(self, home_team: str, away_team: str) -> dict[str, Any]:
         return {
             "home": self.team_profile(home_team),

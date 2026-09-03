@@ -8,10 +8,10 @@ services:
     dockerfilePath: ./Dockerfile
     dockerContext: .
     envVars:
-      - key: CURRENT_SEASON_START
-        value: "2026"
       - key: HISTORICAL_START_SEASON
         value: "2000"
+      - key: PREDICTION_PUBLISH_LEAD_DAYS
+        value: "3"
       - key: AUTO_REFRESH_INTERVAL_HOURS
         value: "6"
       - key: PREDICTION_SEED_URL

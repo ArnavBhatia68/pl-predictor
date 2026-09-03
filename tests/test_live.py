@@ -59,6 +59,18 @@ class LiveFeatureTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             state.fixture_features("Chelsea", "Barcelona", "2025-08-08")
 
+    def test_upcoming_season_can_be_prepared_before_first_result(self) -> None:
+        matches = pd.DataFrame(
+            [_match("2025-08-01", "Chelsea", "Arsenal", 2, 0, 15, 6)]
+        )
+        state = LiveFeatureState().replay(matches)
+        previous_elo = state.elo.get("Chelsea")
+        state.prepare_season(2026, ["Chelsea", "Sunderland"])
+        live = state.fixture_features("Chelsea", "Sunderland", "2026-08-08", 2026)
+        self.assertEqual(state.active_season_label, "2026/27")
+        self.assertEqual(live.loc[0, "home_season_matches_available"], 0.0)
+        self.assertNotEqual(state.elo.get("Chelsea"), previous_elo)
+
 
 if __name__ == "__main__":
     unittest.main()

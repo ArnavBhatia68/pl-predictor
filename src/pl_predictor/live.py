@@ -48,6 +48,17 @@ class LiveFeatureState:
         if self.active_season != season_start:
             self._begin_season(season_start, season_label)
 
+    def prepare_season(self, season_start: int, teams: list[str]) -> None:
+        """Prepare an upcoming season before its first completed result exists."""
+        if self.active_season is not None and season_start < self.active_season:
+            raise ValueError("Cannot prepare an earlier season")
+        if self.active_season != season_start:
+            self._begin_season(
+                season_start,
+                f"{season_start:04d}/{(season_start + 1) % 100:02d}",
+            )
+        self._active_teams.update(teams)
+
     def _pre_match_features(
         self,
         home_team: str,
@@ -104,7 +115,7 @@ class LiveFeatureState:
         self.last_match_date = fixture_date
         return features
 
-    def replay(self, matches: pd.DataFrame) -> "LiveFeatureState":
+    def replay(self, matches: pd.DataFrame) -> LiveFeatureState:
         ordered = matches.copy()
         ordered["Date"] = pd.to_datetime(ordered["Date"], errors="raise")
         ordered = ordered.sort_values(["Date", "HomeTeam", "AwayTeam"], kind="stable")
@@ -145,6 +156,5 @@ class LiveFeatureState:
         return pd.DataFrame([features])
 
     @classmethod
-    def from_csv(cls, matches_path: Path = MATCHES_PATH) -> "LiveFeatureState":
+    def from_csv(cls, matches_path: Path = MATCHES_PATH) -> LiveFeatureState:
         return cls().replay(pd.read_csv(matches_path))
-
