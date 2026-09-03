@@ -336,6 +336,36 @@ class PredictionStore:
             )
             return cursor.rowcount == 1
 
+    def backfill_stat_forecast(
+        self,
+        fixture_key: str,
+        stat_forecast: dict[str, Any],
+    ) -> bool:
+        """Fill forecast fields added after an outcome prediction was already locked."""
+        values = [
+            stat_forecast.get(metric, {}).get(side)
+            for metric in FORECAST_METRICS
+            for side in ("home", "away")
+        ]
+        if all(value is None for value in values):
+            return False
+        assignments = ", ".join(
+            f"predicted_{side}_{metric}=?"
+            for metric in FORECAST_METRICS
+            for side in ("home", "away")
+        )
+        with self._connect() as connection:
+            cursor = connection.execute(
+                f"""
+                UPDATE predictions
+                SET {assignments}
+                WHERE fixture_key=?
+                  AND predicted_home_shots IS NULL
+                """,
+                (*values, fixture_key),
+            )
+        return cursor.rowcount == 1
+
     def retire_premature_future_predictions(
         self,
         *,
@@ -744,7 +774,7 @@ class FixtureTracker:
         ]
         data_stale = bool(newer_completed)
 
-        saved = predicted = skipped = prediction_blocked = 0
+        saved = predicted = skipped = prediction_blocked = stat_forecasts_backfilled = 0
         for fixture in fixtures:
             try:
                 home = self.service.resolve_team(fixture.home_team)
@@ -754,12 +784,20 @@ class FixtureTracker:
                 continue
             self.store.upsert_fixture(fixture, home, away)
             saved += 1
-            if (
+            eligible_for_publication = (
                 fixture.status in PREDICTABLE_STATUSES
                 and fixture.kickoff_utc > now
                 and fixture.key in official_keys
-                and not self.store.has_prediction(fixture.key)
-            ):
+            )
+            has_prediction = self.store.has_prediction(fixture.key)
+            if eligible_for_publication and has_prediction and self.analytics is not None:
+                stat_forecasts_backfilled += int(
+                    self.store.backfill_stat_forecast(
+                        fixture.key,
+                        self.analytics.stat_forecast(home, away),
+                    )
+                )
+            if eligible_for_publication and not has_prediction:
                 if data_stale:
                     prediction_blocked += 1
                     continue
@@ -797,6 +835,7 @@ class FixtureTracker:
             "graded": graded,
             "skipped": skipped,
             "prediction_blocked": prediction_blocked,
+            "stat_forecasts_backfilled": stat_forecasts_backfilled,
             "retired_predictions": retired,
             "data_stale": data_stale,
             "data_as_of": data_as_of.isoformat() if data_as_of is not None else None,

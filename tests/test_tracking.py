@@ -125,6 +125,31 @@ class TrackingTests(unittest.TestCase):
         self.assertEqual(self.store.record()["accuracy"], 1.0)
         self.assertEqual(self.store.team_record("Chelsea")["accuracy"], 1.0)
 
+    def test_existing_official_prediction_gets_missing_stat_forecast_only(self):
+        upcoming = fixture()
+        prediction = self.service.predict("Chelsea", "Arsenal")
+        prediction["prediction"]["most_likely_outcome"] = "home_win"
+        self.store.upsert_fixture(upcoming, "Chelsea", "Arsenal")
+        self.store.save_prediction(
+            upcoming.key,
+            prediction,
+            created_at=datetime(2026, 9, 8, tzinfo=UTC),
+        )
+        original = self.store.prediction_history()[0]
+
+        self.tracker.analytics = FakeAnalytics()
+        result = self.tracker.sync(
+            FakeProvider([upcoming]),
+            now=datetime(2026, 9, 8, 12, tzinfo=UTC),
+        )
+        updated = self.store.prediction_history()[0]
+
+        self.assertEqual(result["new_predictions"], 0)
+        self.assertEqual(result["stat_forecasts_backfilled"], 1)
+        self.assertEqual(updated["created_at"], original["created_at"])
+        self.assertEqual(updated["home_win"], original["home_win"])
+        self.assertEqual(updated["predicted_home_shots"], 14.0)
+
     def test_prediction_waits_for_three_day_publication_window(self):
         too_early = datetime(2026, 9, 2, 12, tzinfo=UTC)
         result = self.tracker.sync(FakeProvider([fixture()]), now=too_early)
