@@ -4,17 +4,20 @@ A leak-free machine-learning pipeline that predicts Premier League matches as
 **home win / draw / away win probabilities** using detailed historical match
 statistics from 2000/01 onward.
 
-## What V1 does
+## What the production system does
 
 1. Downloads each Premier League `E0.csv` season from Football-Data.co.uk.
    Finished seasons are validated at 380 matches; an open-data GitHub mirror is used if the
    primary archive serves an incomplete file.
 2. Normalizes results, shots, shots on target, corners, fouls, and cards.
 3. Replays matches chronologically and creates every row **before** updating team state.
-4. Engineers last-5, last-10, home/away, season-to-date, and Elo features.
-5. Compares Logistic Regression and Random Forest with time-based splits.
-6. Selects the model with the lowest validation log loss and evaluates it once on held-out seasons.
-7. Saves the model, metrics, and test-set probabilities.
+4. Carries last-5, last-10, and venue form across adjacent seasons while smoothing early
+   season-to-date form with a five-match prior from the preceding season.
+5. Compares Logistic Regression, XGBoost, and Dixon-Coles Poisson models with time-based splits.
+6. Selects the blend with the lowest validation log loss, evaluates it once on a held-out season,
+   then refits the production components through the latest completed season.
+7. Trains separate home/away count models for shots, shots on target, corners, fouls, and yellow
+   cards, and saves their held-out MAE/RMSE reports.
 
 No same-match statistics, future matches, team-name shortcuts, or bookmaker odds are used as
 features.
@@ -110,6 +113,10 @@ models/v4_ensemble_model.joblib
 reports/v4_metrics.json
 reports/v4_walk_forward.csv
 reports/v4_test_predictions.csv
+models/v11_stat_models.joblib
+reports/v11_stat_metrics.json
+reports/v11_stat_walk_forward.csv
+reports/v11_stat_test_predictions.csv
 ```
 
 ## Verified V1 result (September 2, 2026)
@@ -418,6 +425,30 @@ Possession is deliberately not forecast because the historical training source d
 possession labels. Player watch lists use football-data.org's scorer endpoint when the connected
 plan exposes it; otherwise the API returns an explicit availability reason instead of fabricating
 players or statistics.
+
+## V11 standardized forecasting upgrade
+
+V11 fixes early-season fragility and makes every displayed forecast auditable:
+
+- last-5, last-10, and venue form cross an adjacent season boundary, so Gameweek 3 can use the
+  two current matches plus the most recent matches from the preceding campaign;
+- season-to-date features reset normally but are blended with a five-match prior. Returning clubs
+  use their preceding PL season and promoted clubs use the preceding league average;
+- the equal-weight historical training candidate beat the five-year time-decay candidate, so old
+  training rows remain available without an arbitrary recency multiplier;
+- the production outcome artifact is refit through 2025/26 after the untouched test report is
+  generated;
+- the displayed expected-goal rates, modal scoreline, and top-five scorelines all come from the
+  same Dixon-Coles score matrix;
+- separate Poisson count models forecast shots, shots on target, corners, fouls, and yellow cards.
+  Serving enforces `shots_on_target <= shots` and returns 80% count intervals;
+- official predictions remain immutable. When a model changes during an open matchweek, its new
+  forecasts are stored as shadow predictions and never counted in the official record.
+
+The corrected six-season walk-forward run selected **15% XGBoost + 85% Dixon-Coles Poisson** with
+0.9594 mean validation log loss. On the untouched 2025/26 season it recorded 48.2% outcome
+accuracy and 1.0246 log loss. Detailed-stat held-out MAE was 3.36 shots, 1.77 shots on target,
+2.13 corners, 2.77 fouls, and 1.01 yellow cards per team-match.
 
 Additional V9 endpoints:
 

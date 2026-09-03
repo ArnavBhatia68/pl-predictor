@@ -10,8 +10,17 @@ import joblib
 import numpy as np
 import pandas as pd
 
-from .config import MATCHES_PATH, V4_METRICS_PATH, V4_MODEL_PATH, V4_PREDICTIONS_PATH
+from .config import (
+    MATCHES_PATH,
+    MODEL_VERSION,
+    V4_METRICS_PATH,
+    V4_MODEL_PATH,
+    V4_PREDICTIONS_PATH,
+    V11_STAT_METRICS_PATH,
+    V11_STAT_MODEL_PATH,
+)
 from .live import LiveFeatureState
+from .stat_models import DetailedStatModels
 
 TEAM_ALIASES = {
     "arsenal fc": "Arsenal",
@@ -68,12 +77,14 @@ def _load_live_feature_state(
         processed_count = getattr(state, "match_count", None)
         if (
             isinstance(state, LiveFeatureState)
+            and getattr(state, "feature_state_version", None) == 11
             and state.last_match_date == latest_match_date
             and processed_count == match_count
         ):
             return state
         if (
             isinstance(state, LiveFeatureState)
+            and getattr(state, "feature_state_version", None) == 11
             and isinstance(processed_count, int)
             and 0 < processed_count < match_count
         ):
@@ -106,12 +117,16 @@ class PredictionService:
         artifact: dict[str, Any],
         state: LiveFeatureState,
         metrics: dict[str, Any] | None = None,
+        stat_models: DetailedStatModels | None = None,
+        stat_metrics: dict[str, Any] | None = None,
         prediction_history_path: Path = V4_PREDICTIONS_PATH,
     ) -> None:
         self.artifact = artifact
         self.model = artifact["model"]
         self.state = state
         self.metrics = metrics or {}
+        self.stat_models = stat_models
+        self.stat_metrics = stat_metrics or {}
         self.prediction_history_path = prediction_history_path
 
     @classmethod
@@ -121,6 +136,8 @@ class PredictionService:
         matches_path: Path = MATCHES_PATH,
         metrics_path: Path = V4_METRICS_PATH,
         state_path: Path | None = None,
+        stat_model_path: Path = V11_STAT_MODEL_PATH,
+        stat_metrics_path: Path = V11_STAT_METRICS_PATH,
     ) -> PredictionService:
         artifact = _load_model_artifact(model_path)
         state = _load_live_feature_state(
@@ -132,7 +149,13 @@ class PredictionService:
             if metrics_path.exists()
             else {}
         )
-        return cls(artifact, state, metrics)
+        stat_models = _load_model_artifact(stat_model_path) if stat_model_path.exists() else None
+        stat_metrics = (
+            json.loads(stat_metrics_path.read_text(encoding="utf-8"))
+            if stat_metrics_path.exists()
+            else {}
+        )
+        return cls(artifact, state, metrics, stat_models, stat_metrics)
 
     def resolve_team(self, name: str) -> str:
         return self._canonical_team(name, require_active=True)
@@ -184,6 +207,10 @@ class PredictionService:
     def teams(self) -> list[str]:
         return self.state.available_teams
 
+    @property
+    def model_version(self) -> str:
+        return str(self.artifact.get("model_version", MODEL_VERSION))
+
     @staticmethod
     def _confidence(probabilities: np.ndarray) -> tuple[float, str]:
         maximum = float(probabilities.max())
@@ -215,6 +242,7 @@ class PredictionService:
         classifier, poisson = self.model.component_probabilities(frame)
         home_rates, away_rates = self.model.predict_goal_rates(frame)
         scoreline = self.model.predict_scorelines(frame)[0]
+        top_scorelines = self.model.scoreline_distributions(frame, limit=5)[0]
         label_index = int(ensemble.argmax())
         outcome_labels = [away, "Draw", home]
         confidence, confidence_label = self._confidence(ensemble)
@@ -229,6 +257,11 @@ class PredictionService:
             "prediction": {
                 "most_likely_outcome": outcome_labels[label_index],
                 "most_likely_score": scoreline,
+                "modal_scoreline": scoreline,
+                "top_scorelines": top_scorelines,
+                "scoreline_method": (
+                    "Dixon-Coles Poisson distribution generated from the displayed goal rates"
+                ),
                 "confidence": confidence,
                 "confidence_label": confidence_label,
             },
@@ -240,7 +273,9 @@ class PredictionService:
             "expected_goals": {
                 "home": float(home_rates[0]),
                 "away": float(away_rates[0]),
+                "label": "model-derived expected goals",
             },
+            "stat_forecast": self.stat_models.predict(frame) if self.stat_models else {},
             "components": {
                 "classifier_weight": float(self.artifact["classifier_weight"]),
                 "poisson_weight": float(self.artifact["poisson_weight"]),
@@ -270,13 +305,13 @@ class PredictionService:
                 },
             },
             "data_as_of": latest.isoformat(),
-            "model_version": "v4-ensemble",
+            "model_version": self.model_version,
         }
 
     def performance(self) -> dict[str, Any]:
         test = self.metrics.get("test_ensemble", {})
         return {
-            "model_version": "v4-ensemble",
+            "model_version": self.model_version,
             "classifier_weight": self.artifact.get("classifier_weight"),
             "poisson_weight": self.artifact.get("poisson_weight"),
             "test_season": self.metrics.get("test_season"),
@@ -284,6 +319,11 @@ class PredictionService:
             "log_loss": test.get("log_loss"),
             "brier_score": test.get("brier_score"),
             "macro_f1": test.get("macro_f1"),
+            "production_trained_through_season": self.metrics.get(
+                "production_trained_through_season"
+            ),
+            "stat_models": self.stat_metrics.get("test", {}),
+            "stat_model_selection": self.stat_metrics.get("selected_candidates", {}),
         }
 
     def historical_predictions(self, limit: int = 20) -> list[dict[str, Any]]:

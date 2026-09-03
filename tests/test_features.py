@@ -15,9 +15,10 @@ def match(
     away_shots: int,
 ) -> dict[str, object]:
     result = "H" if home_goals > away_goals else "D" if home_goals == away_goals else "A"
+    season_start = pd.Timestamp(date).year if pd.Timestamp(date).month >= 7 else pd.Timestamp(date).year - 1
     row: dict[str, object] = {
-        "season_start": 2025,
-        "season": "2025/26",
+        "season_start": season_start,
+        "season": f"{season_start}/{str(season_start + 1)[-2:]}",
         "Date": date,
         "HomeTeam": home,
         "AwayTeam": away,
@@ -83,6 +84,20 @@ class FeatureTests(unittest.TestCase):
         self.assertAlmostEqual(features.loc[1, "away_last5_points"], 3.0)
         self.assertAlmostEqual(features.loc[2, "home_last5_points"], 2.0)
         self.assertAlmostEqual(features.loc[2, "home_last5_goals_for"], 1.5)
+
+    def test_recent_form_crosses_season_boundary_but_season_count_resets(self) -> None:
+        frame = pd.DataFrame(
+            [
+                match("2025-05-20", "Chelsea", "Arsenal", 2, 0, 15, 6),
+                match("2025-08-15", "Chelsea", "Everton", 1, 1, 11, 7),
+            ]
+        )
+        features = build_features(frame)
+
+        self.assertAlmostEqual(features.loc[1, "home_last5_points"], 3.0)
+        self.assertEqual(features.loc[1, "home_last5_matches_available"], 1.0)
+        self.assertEqual(features.loc[1, "home_season_matches_available"], 0.0)
+        self.assertAlmostEqual(features.loc[1, "home_season_goals_for"], 2.0)
 
 
 if __name__ == "__main__":

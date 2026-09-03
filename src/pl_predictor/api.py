@@ -212,7 +212,7 @@ SyncKeyDependency = Annotated[None, Depends(require_sync_key)]
 
 app = FastAPI(
     title="PL Predictor API",
-    version="0.10.0",
+    version="0.11.0",
     description=(
         "Leak-free Premier League probabilities, upcoming fixtures, and immutable "
         "pre-match prediction tracking."
@@ -240,7 +240,7 @@ app.add_middleware(
 def root() -> dict[str, Any]:
     return {
         "name": "PL Predictor API",
-        "version": "0.10.0",
+        "version": "0.11.0",
         "docs": "/docs",
         "health": "/health",
     }
@@ -250,7 +250,7 @@ def root() -> dict[str, Any]:
 def health(service: PredictionServiceDependency) -> dict[str, Any]:
     return {
         "status": "ok",
-        "model": "v4-ensemble",
+        "model": service.model_version,
         "season": service.state.active_season_label,
         "data_as_of": service.state.last_match_date.date().isoformat()
         if service.state.last_match_date is not None
@@ -357,7 +357,11 @@ def fixture_intelligence(
                 "total": round(float(home_value) + float(away_value), 1),
                 "method": "locked with the official pre-match prediction",
             }
-    return {"fixture": fixture, **intelligence}
+    return {
+        "fixture": fixture,
+        "shadow_predictions": tracker.store.fixture_shadows(fixture_key),
+        **intelligence,
+    }
 
 
 @app.get("/dashboard")
@@ -421,6 +425,14 @@ def live_predictions(
     limit: Annotated[int, Query(ge=1, le=1000)] = 100,
 ) -> dict[str, Any]:
     return {"predictions": tracker.store.prediction_history(limit)}
+
+
+@app.get("/shadow-predictions")
+def shadow_predictions(
+    tracker: FixtureTrackerDependency,
+    limit: Annotated[int, Query(ge=1, le=1000)] = 100,
+) -> dict[str, Any]:
+    return {"predictions": tracker.store.shadow_prediction_history(limit)}
 
 
 @app.get("/season-record")

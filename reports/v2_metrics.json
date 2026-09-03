@@ -29,14 +29,14 @@
       "model_type": "xgboost",
       "feature_set": "compact",
       "features": 63,
-      "mean_log_loss": 0.9670687613027749,
-      "std_log_loss": 0.0414742661571567,
-      "mean_accuracy": 0.5495614035087719,
-      "mean_macro_f1": 0.40852826118710234,
-      "mean_brier": 0.5715949828964196,
-      "mean_ece": 0.05293850472621751,
-      "mean_draw_recall": 0.013116974376661435,
-      "mean_draw_prediction_rate": 0.009649122807017544
+      "mean_log_loss": 0.965614243443682,
+      "std_log_loss": 0.04317232154233299,
+      "mean_accuracy": 0.5521929824561403,
+      "mean_macro_f1": 0.40780497140027583,
+      "mean_brier": 0.5706256354544689,
+      "mean_ece": 0.049393393373803086,
+      "mean_draw_recall": 0.007968660249474067,
+      "mean_draw_prediction_rate": 0.005263157894736842
     },
     {
       "rank": 2,
@@ -44,125 +44,52 @@
       "model_type": "logistic",
       "feature_set": "compact",
       "features": 63,
-      "mean_log_loss": 0.9676673118382823,
-      "std_log_loss": 0.04625055831294183,
-      "mean_accuracy": 0.5491228070175439,
-      "mean_macro_f1": 0.4098799721159656,
-      "mean_brier": 0.5721289365459831,
-      "mean_ece": 0.04958230710093783,
-      "mean_draw_recall": 0.013820806906089928,
-      "mean_draw_prediction_rate": 0.008333333333333333
+      "mean_log_loss": 0.9679278457290126,
+      "std_log_loss": 0.052637302606218225,
+      "mean_accuracy": 0.5451754385964912,
+      "mean_macro_f1": 0.407288796161871,
+      "mean_brier": 0.5716085504196492,
+      "mean_ece": 0.05044602818454642,
+      "mean_draw_recall": 0.015540077792734959,
+      "mean_draw_prediction_rate": 0.014473684210526314
     },
     {
       "rank": 3,
-      "candidate": "xgb_compact_depth3_decay5",
+      "candidate": "xgb_compact_decay5",
       "model_type": "xgboost",
       "feature_set": "compact",
       "features": 63,
-      "mean_log_loss": 0.9712127784067136,
-      "std_log_loss": 0.042763286274173355,
-      "mean_accuracy": 0.5482456140350878,
-      "mean_macro_f1": 0.4294384987747328,
-      "mean_brier": 0.5745882773873421,
-      "mean_ece": 0.05199905846986854,
-      "mean_draw_recall": 0.052117458501973656,
-      "mean_draw_prediction_rate": 0.03684210526315789
-    },
-    {
-      "rank": 4,
-      "candidate": "lr_compact_decay5",
-      "model_type": "logistic",
-      "feature_set": "compact",
-      "features": 63,
-      "mean_log_loss": 0.9726768153014952,
-      "std_log_loss": 0.04599458274336309,
-      "mean_accuracy": 0.5442982456140352,
-      "mean_macro_f1": 0.40982548014475184,
-      "mean_brier": 0.5756248571500289,
-      "mean_ece": 0.04148017334841394,
-      "mean_draw_recall": 0.018200745071668765,
-      "mean_draw_prediction_rate": 0.014035087719298246
-    },
-    {
-      "rank": 5,
-      "candidate": "xgb_compact_draw110_decay5",
-      "model_type": "xgboost",
-      "feature_set": "compact",
-      "features": 63,
-      "mean_log_loss": 0.9734838252113752,
-      "std_log_loss": 0.04237974421253917,
-      "mean_accuracy": 0.5447368421052632,
-      "mean_macro_f1": 0.4386155175671946,
-      "mean_brier": 0.5758309800108203,
-      "mean_ece": 0.05520938930281421,
-      "mean_draw_recall": 0.0793777958422638,
-      "mean_draw_prediction_rate": 0.060087719298245613
-    },
-    {
-      "rank": 6,
-      "candidate": "lr_compact_draw110_decay5",
-      "model_type": "logistic",
-      "feature_set": "compact",
-      "features": 63,
-      "mean_log_loss": 0.9752095236274111,
-      "std_log_loss": 0.04501201985371824,
-      "mean_accuracy": 0.5390350877192982,
-      "mean_macro_f1": 0.41336162482192135,
-      "mean_brier": 0.5770656489027667,
-      "mean_ece": 0.03404414687954874,
-      "mean_draw_recall": 0.02968592543049157,
-      "mean_draw_prediction_rate": 0.0293859649122807
-    },
-    {
-      "rank": 7,
-      "candidate": "xgb_full_decay5",
-      "model_type": "xgboost",
-      "feature_set": "full",
-      "features": 243,
-      "mean_log_loss": 0.9765658477342759,
-      "std_log_loss": 0.03622940101534774,
-      "mean_accuracy": 0.5390350877192982,
-      "mean_macro_f1": 0.4177056633883578,
-      "mean_brier": 0.5778029834277904,
-      "mean_ece": 0.043367287791089004,
-      "mean_draw_recall": 0.0414781528483531,
-      "mean_draw_prediction_rate": 0.035964912280701755
-    },
-    {
-      "rank": 8,
-      "candidate": "lr_full",
-      "model_type": "logistic",
-      "feature_set": "full",
-      "features": 243,
-      "mean_log_loss": 0.9805411368182494,
-      "std_log_loss": 0.046664101629077866,
-      "mean_accuracy": 0.537719298245614,
-      "mean_macro_f1": 0.42097848428767826,
-      "mean_brier": 0.5792493925486246,
-      "mean_ece": 0.058392270548540424,
-      "mean_draw_recall": 0.047977896294174434,
-      "mean_draw_prediction_rate": 0.03508771929824561
+      "mean_log_loss": 0.9699454377256593,
+      "std_log_loss": 0.04550981725738675,
+      "mean_accuracy": 0.5548245614035088,
+      "mean_macro_f1": 0.4223388038680316,
+      "mean_brier": 0.5736695339050174,
+      "mean_ece": 0.05085174033516331,
+      "mean_draw_recall": 0.0294036318901983,
+      "mean_draw_prediction_rate": 0.012719298245614035
     }
   ],
   "test_uncalibrated": {
     "rows": 380,
-    "accuracy": 0.4868421052631579,
-    "macro_f1": 0.3591326867414817,
-    "log_loss": 1.0313257512320404,
-    "brier_score": 0.6196506875645867,
-    "ece": 0.05110482385284023,
+    "accuracy": 0.4921052631578947,
+    "macro_f1": 0.3648064456067299,
+    "log_loss": 1.0260655109788084,
+    "brier_score": 0.6156956589303721,
+    "ece": 0.04151972430317025,
     "draw_recall": 0.0,
     "draw_prediction_rate": 0.005263157894736842,
+    "actual_draw_rate": 0.2736842105263158,
+    "mean_draw_probability": 0.2521022856235504,
     "confusion_matrix": [
       [
-        52,
+        54,
         2,
-        60
+        58
       ],
       [
-        40,
+        38,
         0,
-        64
+        66
       ],
       [
         29,
@@ -172,9 +99,9 @@
     ],
     "classification_report": {
       "A": {
-        "precision": 0.4297520661157025,
-        "recall": 0.45614035087719296,
-        "f1-score": 0.4425531914893617,
+        "precision": 0.4462809917355372,
+        "recall": 0.47368421052631576,
+        "f1-score": 0.4595744680851064,
         "support": 114.0
       },
       "D": {
@@ -189,52 +116,54 @@
         "f1-score": 0.6348448687350835,
         "support": 162.0
       },
-      "accuracy": 0.4868421052631579,
+      "accuracy": 0.4921052631578947,
       "macro avg": {
-        "precision": 0.3157539312473872,
-        "recall": 0.4257093350660602,
-        "f1-score": 0.3591326867414817,
+        "precision": 0.32126357312066545,
+        "recall": 0.4315572882824345,
+        "f1-score": 0.3648064456067299,
         "support": 380.0
       },
       "weighted avg": {
-        "precision": 0.349548187928096,
-        "recall": 0.4868421052631579,
-        "f1-score": 0.40341034885492305,
+        "precision": 0.35450686561404643,
+        "recall": 0.4921052631578947,
+        "f1-score": 0.4085167318336464,
         "support": 380.0
       }
     }
   },
   "test_calibrated": {
     "rows": 380,
-    "accuracy": 0.48157894736842105,
-    "macro_f1": 0.36429348173735043,
-    "log_loss": 1.0297482572360648,
-    "brier_score": 0.6193358896710535,
-    "ece": 0.054258534195379626,
+    "accuracy": 0.49473684210526314,
+    "macro_f1": 0.3745704467353952,
+    "log_loss": 1.02473214368855,
+    "brier_score": 0.6154664881279834,
+    "ece": 0.04478636024430969,
     "draw_recall": 0.0,
     "draw_prediction_rate": 0.0,
+    "actual_draw_rate": 0.2736842105263158,
+    "mean_draw_probability": 0.2495154014468826,
     "confusion_matrix": [
       [
-        65,
+        67,
         0,
-        49
+        47
       ],
       [
-        47,
+        46,
         0,
-        57
+        58
       ],
       [
-        44,
+        41,
         0,
-        118
+        121
       ]
     ],
     "classification_report": {
       "A": {
-        "precision": 0.4166666666666667,
-        "recall": 0.5701754385964912,
-        "f1-score": 0.48148148148148145,
+        "precision": 0.43506493506493504,
+        "recall": 0.5877192982456141,
+        "f1-score": 0.5,
         "support": 114.0
       },
       "D": {
@@ -244,22 +173,22 @@
         "support": 104.0
       },
       "H": {
-        "precision": 0.5267857142857143,
-        "recall": 0.7283950617283951,
-        "f1-score": 0.6113989637305699,
+        "precision": 0.5353982300884956,
+        "recall": 0.7469135802469136,
+        "f1-score": 0.6237113402061856,
         "support": 162.0
       },
-      "accuracy": 0.48157894736842105,
+      "accuracy": 0.49473684210526314,
       "macro avg": {
-        "precision": 0.314484126984127,
-        "recall": 0.43285683344162873,
-        "f1-score": 0.36429348173735043,
+        "precision": 0.3234877217178102,
+        "recall": 0.44487762616417587,
+        "f1-score": 0.3745704467353952,
         "support": 380.0
       },
       "weighted avg": {
-        "precision": 0.34957706766917296,
-        "recall": 0.48157894736842105,
-        "f1-score": 0.40509347635063475,
+        "precision": 0.35876819966247075,
+        "recall": 0.49473684210526314,
+        "f1-score": 0.4158979924036897,
         "support": 380.0
       }
     }
@@ -267,163 +196,103 @@
   "top_shap_features": [
     {
       "rank": 1,
-      "feature": "diff_elo",
-      "mean_abs_shap": 0.17581287026405334,
-      "mean_abs_shap_A": 0.23915699124336243,
-      "mean_abs_shap_D": 0.06597276031970978,
-      "mean_abs_shap_H": 0.22230878472328186
+      "feature": "diff_season_shot_dominance",
+      "mean_abs_shap": 0.14379112422466278
     },
     {
       "rank": 2,
-      "feature": "diff_season_shot_dominance",
-      "mean_abs_shap": 0.045864954590797424,
-      "mean_abs_shap_A": 0.04789743945002556,
-      "mean_abs_shap_D": 0.0027838123496621847,
-      "mean_abs_shap_H": 0.0869135782122612
+      "feature": "diff_season_sot_dominance",
+      "mean_abs_shap": 0.12520352005958557
     },
     {
       "rank": 3,
-      "feature": "home_elo",
-      "mean_abs_shap": 0.035368531942367554,
-      "mean_abs_shap_A": 0.06832146644592285,
-      "mean_abs_shap_D": 0.00486913463100791,
-      "mean_abs_shap_H": 0.03291497379541397
+      "feature": "diff_elo",
+      "mean_abs_shap": 0.09142963588237762
     },
     {
       "rank": 4,
-      "feature": "away_elo",
-      "mean_abs_shap": 0.0352470837533474,
-      "mean_abs_shap_A": 0.0636652484536171,
-      "mean_abs_shap_D": 0.006080262362957001,
-      "mean_abs_shap_H": 0.03599570319056511
+      "feature": "diff_season_goal_diff",
+      "mean_abs_shap": 0.042201559990644455
     },
     {
       "rank": 5,
-      "feature": "diff_season_sot_dominance",
-      "mean_abs_shap": 0.030430810526013374,
-      "mean_abs_shap_A": 0.06991924345493317,
-      "mean_abs_shap_D": 0.003383657429367304,
-      "mean_abs_shap_H": 0.017989587038755417
+      "feature": "diff_season_sot_for",
+      "mean_abs_shap": 0.03709837421774864
     },
     {
       "rank": 6,
-      "feature": "diff_last5_shot_dominance",
-      "mean_abs_shap": 0.018030798062682152,
-      "mean_abs_shap_A": 0.03085065633058548,
-      "mean_abs_shap_D": 0.009359810501337051,
-      "mean_abs_shap_H": 0.013881925493478775
+      "feature": "diff_last10_shot_dominance",
+      "mean_abs_shap": 0.03447564318776131
     },
     {
       "rank": 7,
-      "feature": "diff_venue_last5_sot_against",
-      "mean_abs_shap": 0.017932355403900146,
-      "mean_abs_shap_A": 0.00495667289942503,
-      "mean_abs_shap_D": 0.031226947903633118,
-      "mean_abs_shap_H": 0.017613448202610016
+      "feature": "diff_last5_shot_dominance",
+      "mean_abs_shap": 0.018012259155511856
     },
     {
       "rank": 8,
-      "feature": "diff_season_sot_for",
-      "mean_abs_shap": 0.016655566170811653,
-      "mean_abs_shap_A": 0.04383241385221481,
-      "mean_abs_shap_D": 0.00031681140535511076,
-      "mean_abs_shap_H": 0.005817475263029337
+      "feature": "diff_season_shots_for",
+      "mean_abs_shap": 0.0161907896399498
     },
     {
       "rank": 9,
-      "feature": "diff_last5_shots_against",
-      "mean_abs_shap": 0.015489012934267521,
-      "mean_abs_shap_A": 0.019108854234218597,
-      "mean_abs_shap_D": 0.024769948795437813,
-      "mean_abs_shap_H": 0.002588209928944707
+      "feature": "diff_season_goals_for",
+      "mean_abs_shap": 0.015127438120543957
     },
     {
       "rank": 10,
-      "feature": "diff_last5_points",
-      "mean_abs_shap": 0.01440174225717783,
-      "mean_abs_shap_A": 0.026827752590179443,
-      "mean_abs_shap_D": 0.005007078871130943,
-      "mean_abs_shap_H": 0.011370387859642506
+      "feature": "away_elo",
+      "mean_abs_shap": 0.014553660526871681
     },
     {
       "rank": 11,
-      "feature": "diff_last10_conversion_rate",
-      "mean_abs_shap": 0.013776715844869614,
-      "mean_abs_shap_A": 0.009683406911790371,
-      "mean_abs_shap_D": 0.022446284070611,
-      "mean_abs_shap_H": 0.00920045468956232
+      "feature": "diff_last5_shots_for",
+      "mean_abs_shap": 0.014508149586617947
     },
     {
       "rank": 12,
-      "feature": "diff_last10_shot_dominance",
-      "mean_abs_shap": 0.012263215146958828,
-      "mean_abs_shap_A": 0.00022615412308368832,
-      "mean_abs_shap_D": 0.0013770423829555511,
-      "mean_abs_shap_H": 0.03518643230199814
+      "feature": "diff_venue_last5_shot_dominance",
+      "mean_abs_shap": 0.013164608739316463
     },
     {
       "rank": 13,
-      "feature": "diff_last5_shots_for",
-      "mean_abs_shap": 0.011951198801398277,
-      "mean_abs_shap_A": 0.027305040508508682,
-      "mean_abs_shap_D": 0.00032430942519567907,
-      "mean_abs_shap_H": 0.008224236778914928
+      "feature": "diff_venue_last5_sot_for",
+      "mean_abs_shap": 0.012897453270852566
     },
     {
       "rank": 14,
-      "feature": "diff_last5_conversion_rate",
-      "mean_abs_shap": 0.010943934321403503,
-      "mean_abs_shap_A": 0.00951518677175045,
-      "mean_abs_shap_D": 0.018810419365763664,
-      "mean_abs_shap_H": 0.004506207071244717
+      "feature": "diff_season_win",
+      "mean_abs_shap": 0.012517322786152363
     },
     {
       "rank": 15,
-      "feature": "diff_season_shots_for",
-      "mean_abs_shap": 0.010863193310797215,
-      "mean_abs_shap_A": 0.01669168658554554,
-      "mean_abs_shap_D": 0.0006422529113478959,
-      "mean_abs_shap_H": 0.015255631878972054
+      "feature": "home_elo",
+      "mean_abs_shap": 0.012501142919063568
     },
     {
       "rank": 16,
-      "feature": "diff_season_goal_diff",
-      "mean_abs_shap": 0.010391258634626865,
-      "mean_abs_shap_A": 0.02714616432785988,
-      "mean_abs_shap_D": 0.001145771355368197,
-      "mean_abs_shap_H": 0.002881823806092143
+      "feature": "diff_season_shots_against",
+      "mean_abs_shap": 0.012440063059329987
     },
     {
       "rank": 17,
-      "feature": "diff_venue_last5_sot_dominance",
-      "mean_abs_shap": 0.010121075436472893,
-      "mean_abs_shap_A": 0.021121587604284286,
-      "mean_abs_shap_D": 0.008686564862728119,
-      "mean_abs_shap_H": 0.000555075122974813
+      "feature": "diff_season_points",
+      "mean_abs_shap": 0.012193904258310795
     },
     {
       "rank": 18,
-      "feature": "home_season_matches_available",
-      "mean_abs_shap": 0.01006069965660572,
-      "mean_abs_shap_A": 0.002200575778260827,
-      "mean_abs_shap_D": 0.017467578873038292,
-      "mean_abs_shap_H": 0.010513943620026112
+      "feature": "diff_last10_sot_dominance",
+      "mean_abs_shap": 0.011576964519917965
     },
     {
       "rank": 19,
-      "feature": "diff_last10_sot_against",
-      "mean_abs_shap": 0.010050082579255104,
-      "mean_abs_shap_A": 0.024470718577504158,
-      "mean_abs_shap_D": 0.004496094770729542,
-      "mean_abs_shap_H": 0.001183437299914658
+      "feature": "diff_venue_last5_shots_for",
+      "mean_abs_shap": 0.010799406096339226
     },
     {
       "rank": 20,
-      "feature": "diff_venue_last5_sot_for",
-      "mean_abs_shap": 0.009947807528078556,
-      "mean_abs_shap_A": 0.004741860553622246,
-      "mean_abs_shap_D": 0.00037189919385127723,
-      "mean_abs_shap_H": 0.024729661643505096
+      "feature": "diff_last5_shots_against",
+      "mean_abs_shap": 0.01073373481631279
     }
   ]
 }

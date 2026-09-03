@@ -23,7 +23,6 @@ from .config import (
 from .poisson import CalibratedPoissonModel, IndependentPoissonModel, LogProbabilityCalibrator
 from .v2 import TARGET_TO_INT, evaluate_probabilities, sample_weights, walk_forward_splits
 
-
 GOAL_METRICS = {
     "points",
     "goals_for",
@@ -57,25 +56,8 @@ def default_poisson_candidates() -> list[PoissonCandidate]:
             "poisson_linear_decay5", "linear", half_life_years=5.0, params={"alpha": 0.3}
         ),
         PoissonCandidate(
-            "poisson_hist15",
-            "histogram",
-            params={"max_leaf_nodes": 15, "learning_rate": 0.05, "max_iter": 250},
-        ),
-        PoissonCandidate(
-            "poisson_hist15_decay5",
-            "histogram",
-            half_life_years=5.0,
-            params={"max_leaf_nodes": 15, "learning_rate": 0.05, "max_iter": 250},
-        ),
-        PoissonCandidate(
             "poisson_xgb_depth2",
             "xgboost",
-            params={"max_depth": 2, "learning_rate": 0.03, "n_estimators": 350},
-        ),
-        PoissonCandidate(
-            "poisson_xgb_depth2_decay5",
-            "xgboost",
-            half_life_years=5.0,
             params={"max_depth": 2, "learning_rate": 0.03, "n_estimators": 350},
         ),
     ]
@@ -243,8 +225,19 @@ def global_poisson_shap(
     output_path: Path,
 ) -> list[dict[str, Any]]:
     sample = frame[feature_columns].iloc[: min(500, len(frame))]
-    home = _regressor_shap_values(model.home_model, model_type, sample)
-    away = _regressor_shap_values(model.away_model, model_type, sample)
+    try:
+        home = _regressor_shap_values(model.home_model, model_type, sample)
+        away = _regressor_shap_values(model.away_model, model_type, sample)
+    except ImportError:
+        def native_importance(pipeline: Any) -> np.ndarray:
+            estimator = pipeline.named_steps["regressor"]
+            values = getattr(estimator, "feature_importances_", None)
+            if values is None:
+                values = np.abs(np.asarray(estimator.coef_))
+            return np.asarray(values)
+
+        home = native_importance(model.home_model)
+        away = native_importance(model.away_model)
     importance = pd.DataFrame(
         {
             "feature": feature_columns,

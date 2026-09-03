@@ -1,16 +1,15 @@
 from __future__ import annotations
 
 from collections import defaultdict, deque
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Iterable
 
 import numpy as np
 import pandas as pd
 
 from .config import FEATURES_PATH, MATCHES_PATH, ensure_directories
 from .elo import EloRatings
-
 
 RAW_STAT_COLUMNS = ["HS", "AS", "HST", "AST", "HC", "AC", "HF", "AF", "HY", "AY", "HR", "AR"]
 BASE_METRICS = [
@@ -48,6 +47,23 @@ class TeamState:
     home: deque[dict[str, float]] = field(default_factory=lambda: deque(maxlen=5))
     away: deque[dict[str, float]] = field(default_factory=lambda: deque(maxlen=5))
     season: list[dict[str, float]] = field(default_factory=list)
+    previous_season: list[dict[str, float]] = field(default_factory=list)
+    last_season_seen: int | None = None
+
+    def begin_season(self, season_start: int) -> None:
+        """Roll the season window while retaining genuinely recent PL form."""
+        if self.last_season_seen == season_start:
+            return
+        if self.last_season_seen == season_start - 1:
+            self.previous_season = list(self.season)
+        else:
+            # A promoted/returning club must not inherit stale PL form from years ago.
+            self.previous_season = []
+            self.recent.clear()
+            self.home.clear()
+            self.away.clear()
+        self.season = []
+        self.last_season_seen = season_start
 
 
 def _nan_sum(values: Iterable[float]) -> float:
@@ -86,6 +102,41 @@ def summarize(records: Iterable[dict[str, float]]) -> dict[str, float]:
     summary["corner_dominance"] = _safe_ratio(corners, corners + corners_against)
     summary["matches_available"] = float(len(rows))
     return summary
+
+
+def smoothed_season_summary(
+    state: TeamState,
+    league_prior: dict[str, float] | None,
+    prior_matches: float = 5.0,
+) -> dict[str, float]:
+    """Blend immature season-to-date numbers with a leak-free prior.
+
+    Returning clubs use their immediately preceding PL season; promoted clubs
+    use the previous season's league average. The prior fades naturally as the
+    current season supplies more matches.
+    """
+    current = summarize(state.season)
+    prior = summarize(state.previous_season) if state.previous_season else league_prior
+    current_matches = float(len(state.season))
+    if prior is None:
+        return current
+    blended: dict[str, float] = {}
+    for metric in current:
+        if metric == "matches_available":
+            blended[metric] = current_matches
+            continue
+        current_value = current[metric]
+        prior_value = prior.get(metric, np.nan)
+        if pd.isna(current_value):
+            blended[metric] = float(prior_value)
+        elif pd.isna(prior_value):
+            blended[metric] = float(current_value)
+        else:
+            blended[metric] = float(
+                (current_matches * current_value + prior_matches * prior_value)
+                / (current_matches + prior_matches)
+            )
+    return blended
 
 
 def _team_match_record(row: pd.Series, is_home: bool) -> dict[str, float]:
@@ -158,19 +209,28 @@ def build_features(matches: pd.DataFrame) -> pd.DataFrame:
     team_states: defaultdict[str, TeamState] = defaultdict(TeamState)
     output: list[dict[str, object]] = []
     active_season: int | None = None
+    previous_league_summary: dict[str, float] | None = None
 
     for _, row in ordered.iterrows():
         season_start = int(row["season_start"])
         if active_season is None or season_start != active_season:
             if active_season is not None:
                 elo.regress_to_mean()
-            team_states = defaultdict(TeamState)
+                previous_records = [
+                    record
+                    for state in team_states.values()
+                    for record in state.season
+                    if state.last_season_seen == active_season
+                ]
+                previous_league_summary = summarize(previous_records)
             active_season = season_start
 
         home_team = str(row["HomeTeam"])
         away_team = str(row["AwayTeam"])
         home_state = team_states[home_team]
         away_state = team_states[away_team]
+        home_state.begin_season(season_start)
+        away_state.begin_season(season_start)
 
         features: dict[str, object] = {
             "season_start": season_start,
@@ -189,8 +249,16 @@ def build_features(matches: pd.DataFrame) -> pd.DataFrame:
         _add_summary(features, "away_last10", summarize(away_state.recent))
         _add_summary(features, "home_venue_last5", summarize(home_state.home))
         _add_summary(features, "away_venue_last5", summarize(away_state.away))
-        _add_summary(features, "home_season", summarize(home_state.season))
-        _add_summary(features, "away_season", summarize(away_state.season))
+        _add_summary(
+            features,
+            "home_season",
+            smoothed_season_summary(home_state, previous_league_summary),
+        )
+        _add_summary(
+            features,
+            "away_season",
+            smoothed_season_summary(away_state, previous_league_summary),
+        )
         _add_differences(features)
         output.append(features)
 

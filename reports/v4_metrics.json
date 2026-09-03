@@ -8,319 +8,322 @@
     2023
   ],
   "test_season": 2025,
+  "production_season": 2026,
+  "production_trained_through_season": 2025,
+  "model_version": "v11-standardized",
   "classifier_candidate": "xgb_compact_depth2",
   "poisson_candidate": "poisson_linear",
   "rho": 0.05,
-  "classifier_weight": 0.25,
-  "poisson_weight": 0.75,
+  "classifier_weight": 0.15000000000000002,
+  "poisson_weight": 0.85,
   "leaderboard": [
     {
       "rank": 1,
-      "classifier_weight": 0.25,
-      "poisson_weight": 0.75,
-      "mean_log_loss": 0.9604898438785116,
-      "std_log_loss": 0.04052263876068812,
-      "mean_accuracy": 0.5499999999999999,
-      "mean_macro_f1": 0.40240966816646967,
-      "mean_brier": 0.5687016264207457,
-      "mean_ece": 0.03876195849164813,
+      "classifier_weight": 0.15000000000000002,
+      "poisson_weight": 0.85,
+      "mean_log_loss": 0.9593893106820556,
+      "std_log_loss": 0.04285246882780847,
+      "mean_accuracy": 0.5451754385964912,
+      "mean_macro_f1": 0.3990631166701495,
+      "mean_brier": 0.5679310304373916,
+      "mean_ece": 0.04425691953998844,
       "mean_draw_recall": 0.0,
-      "mean_draw_probability": 0.22342045147972767
+      "mean_draw_probability": 0.22118512645976982
     },
     {
       "rank": 2,
       "classifier_weight": 0.2,
       "poisson_weight": 0.8,
-      "mean_log_loss": 0.9604991419833437,
-      "std_log_loss": 0.04086587274016918,
-      "mean_accuracy": 0.5486842105263158,
-      "mean_macro_f1": 0.40110376313807666,
-      "mean_brier": 0.5687322771144481,
-      "mean_ece": 0.037105802601579384,
+      "mean_log_loss": 0.9593948702545704,
+      "std_log_loss": 0.04242794357769161,
+      "mean_accuracy": 0.5442982456140352,
+      "mean_macro_f1": 0.3981505054289485,
+      "mean_brier": 0.5679175685682606,
+      "mean_ece": 0.04508487844090044,
       "mean_draw_recall": 0.0,
-      "mean_draw_probability": 0.22301258334332383
+      "mean_draw_probability": 0.2217166841683216
     },
     {
       "rank": 3,
-      "classifier_weight": 0.30000000000000004,
-      "poisson_weight": 0.7,
-      "mean_log_loss": 0.9605628637077324,
-      "std_log_loss": 0.04017806829307218,
-      "mean_accuracy": 0.5504385964912281,
-      "mean_macro_f1": 0.402870807218683,
-      "mean_brier": 0.5687226006486861,
-      "mean_ece": 0.04299417700742895,
+      "classifier_weight": 0.1,
+      "poisson_weight": 0.9,
+      "mean_log_loss": 0.9594647361645924,
+      "std_log_loss": 0.04327215950070677,
+      "mean_accuracy": 0.5447368421052632,
+      "mean_macro_f1": 0.39882577532850005,
+      "mean_brier": 0.5679915569693205,
+      "mean_ece": 0.04109472623812569,
       "mean_draw_recall": 0.0,
-      "mean_draw_probability": 0.22382831961613148
+      "mean_draw_probability": 0.22065356875121797
     },
     {
       "rank": 4,
-      "classifier_weight": 0.15000000000000002,
-      "poisson_weight": 0.85,
-      "mean_log_loss": 0.9605917206261633,
-      "std_log_loss": 0.04120744842420051,
-      "mean_accuracy": 0.5486842105263158,
-      "mean_macro_f1": 0.4009196757346498,
-      "mean_brier": 0.5688145527297931,
-      "mean_ece": 0.04303229106937532,
+      "classifier_weight": 0.25,
+      "poisson_weight": 0.75,
+      "mean_log_loss": 0.9594795229706606,
+      "std_log_loss": 0.041998452152484954,
+      "mean_accuracy": 0.5456140350877193,
+      "mean_macro_f1": 0.3993951583537485,
+      "mean_brier": 0.5679511713619275,
+      "mean_ece": 0.047872227202373045,
       "mean_draw_recall": 0.0,
-      "mean_draw_probability": 0.22260471520692002
+      "mean_draw_probability": 0.22224824187687342
     },
     {
       "rank": 5,
-      "classifier_weight": 0.35000000000000003,
-      "poisson_weight": 0.6499999999999999,
-      "mean_log_loss": 0.9607174837897761,
-      "std_log_loss": 0.03983256063796292,
-      "mean_accuracy": 0.5499999999999999,
-      "mean_macro_f1": 0.40249802015175634,
-      "mean_brier": 0.5687951997982691,
-      "mean_ece": 0.043533026034003386,
+      "classifier_weight": 0.05,
+      "poisson_weight": 0.95,
+      "mean_log_loss": 0.9596234867693666,
+      "std_log_loss": 0.04368728092154585,
+      "mean_accuracy": 0.5447368421052632,
+      "mean_macro_f1": 0.39864398919754435,
+      "mean_brier": 0.5680991481640473,
+      "mean_ece": 0.04073604928280388,
       "mean_draw_recall": 0.0,
-      "mean_draw_probability": 0.22423618775253526
+      "mean_draw_probability": 0.22012201104266613
     },
     {
       "rank": 6,
-      "classifier_weight": 0.1,
-      "poisson_weight": 0.9,
-      "mean_log_loss": 0.9607688157430873,
-      "std_log_loss": 0.04154712206598268,
-      "mean_accuracy": 0.5482456140350878,
-      "mean_macro_f1": 0.40034669552493957,
-      "mean_brier": 0.5689484532667809,
-      "mean_ece": 0.038603428012661624,
+      "classifier_weight": 0.30000000000000004,
+      "poisson_weight": 0.7,
+      "mean_log_loss": 0.9596417446245846,
+      "std_log_loss": 0.04156397437985196,
+      "mean_accuracy": 0.5451754385964912,
+      "mean_macro_f1": 0.3987995068022973,
+      "mean_brier": 0.5680318388183925,
+      "mean_ece": 0.045197631741694534,
       "mean_draw_recall": 0.0,
-      "mean_draw_probability": 0.2221968470705162
+      "mean_draw_probability": 0.22277979958542526
     },
     {
       "rank": 7,
-      "classifier_weight": 0.4,
-      "poisson_weight": 0.6,
-      "mean_log_loss": 0.9609532102880073,
-      "std_log_loss": 0.03948659382044025,
-      "mean_accuracy": 0.5504385964912281,
-      "mean_macro_f1": 0.4028776769733034,
-      "mean_brier": 0.5689194238694949,
-      "mean_ece": 0.03977029866443155,
+      "classifier_weight": 0.0,
+      "poisson_weight": 1.0,
+      "mean_log_loss": 0.9598684640164068,
+      "std_log_loss": 0.04409826577193628,
+      "mean_accuracy": 0.5478070175438596,
+      "mean_macro_f1": 0.4011319692387314,
+      "mean_brier": 0.5682538040215721,
+      "mean_ece": 0.04112640676962446,
       "mean_draw_recall": 0.0,
-      "mean_draw_probability": 0.2246440558889391
+      "mean_draw_probability": 0.2195904533341143
     },
     {
       "rank": 8,
-      "classifier_weight": 0.05,
-      "poisson_weight": 0.95,
-      "mean_log_loss": 0.9610319746977455,
-      "std_log_loss": 0.04188473081399126,
-      "mean_accuracy": 0.5499999999999999,
-      "mean_macro_f1": 0.40164133189150103,
-      "mean_brier": 0.5691339787254113,
-      "mean_ece": 0.038919000750829984,
+      "classifier_weight": 0.35000000000000003,
+      "poisson_weight": 0.6499999999999999,
+      "mean_log_loss": 0.9598803202487085,
+      "std_log_loss": 0.041124586852802916,
+      "mean_accuracy": 0.5451754385964912,
+      "mean_macro_f1": 0.39865430361173554,
+      "mean_brier": 0.5681595709376553,
+      "mean_ece": 0.045337059639627995,
       "mean_draw_recall": 0.0,
-      "mean_draw_probability": 0.2217889789341124
+      "mean_draw_probability": 0.2233113572939771
     },
     {
       "rank": 9,
-      "classifier_weight": 0.45,
-      "poisson_weight": 0.55,
-      "mean_log_loss": 0.9612697578688779,
-      "std_log_loss": 0.03914072732847635,
-      "mean_accuracy": 0.5521929824561403,
-      "mean_macro_f1": 0.404337635141403,
-      "mean_brier": 0.5690952728623634,
-      "mean_ece": 0.03824061139308569,
+      "classifier_weight": 0.4,
+      "poisson_weight": 0.6,
+      "mean_log_loss": 0.9601943008957329,
+      "std_log_loss": 0.04068045366410157,
+      "mean_accuracy": 0.5460526315789475,
+      "mean_macro_f1": 0.3995327067587693,
+      "mean_brier": 0.5683343677197161,
+      "mean_ece": 0.04512926957805926,
       "mean_draw_recall": 0.0,
-      "mean_draw_probability": 0.2250519240253429
+      "mean_draw_probability": 0.22384291500252892
     },
     {
       "rank": 10,
-      "classifier_weight": 0.0,
-      "poisson_weight": 1.0,
-      "mean_log_loss": 0.9613831075938579,
-      "std_log_loss": 0.04222019857423198,
-      "mean_accuracy": 0.5495614035087719,
-      "mean_macro_f1": 0.40118362205849917,
-      "mean_brier": 0.5693711291056844,
-      "mean_ece": 0.04081087312473108,
+      "classifier_weight": 0.45,
+      "poisson_weight": 0.55,
+      "mean_log_loss": 0.9605829713460913,
+      "std_log_loss": 0.04023182112739562,
+      "mean_accuracy": 0.5478070175438597,
+      "mean_macro_f1": 0.40098263521333743,
+      "mean_brier": 0.5685562291645748,
+      "mean_ece": 0.04279963791243067,
       "mean_draw_recall": 0.0,
-      "mean_draw_probability": 0.22138111079770859
+      "mean_draw_probability": 0.22437447271108077
     },
     {
       "rank": 11,
       "classifier_weight": 0.5,
       "poisson_weight": 0.5,
-      "mean_log_loss": 0.9616670390111833,
-      "std_log_loss": 0.038795606180911185,
-      "mean_accuracy": 0.5499999999999999,
-      "mean_macro_f1": 0.40235998621568325,
-      "mean_brier": 0.5693227467768746,
-      "mean_ece": 0.03698345496461706,
+      "mean_log_loss": 0.9610458258802835,
+      "std_log_loss": 0.039779015588976105,
+      "mean_accuracy": 0.5482456140350878,
+      "mean_macro_f1": 0.401187770942121,
+      "mean_brier": 0.5688251552722314,
+      "mean_ece": 0.044724486418263966,
       "mean_draw_recall": 0.0,
-      "mean_draw_probability": 0.22545979216174672
+      "mean_draw_probability": 0.22490603041963256
     },
     {
       "rank": 12,
       "classifier_weight": 0.55,
       "poisson_weight": 0.44999999999999996,
-      "mean_log_loss": 0.9621451572349815,
-      "std_log_loss": 0.038451966221002734,
-      "mean_accuracy": 0.5491228070175439,
-      "mean_macro_f1": 0.40178621119454555,
-      "mean_brier": 0.5696018456130284,
-      "mean_ece": 0.0383964746805868,
+      "mean_log_loss": 0.9615825501807692,
+      "std_log_loss": 0.03932244375939517,
+      "mean_accuracy": 0.5499999999999999,
+      "mean_macro_f1": 0.4029310509766968,
+      "mean_brier": 0.5691411460426861,
+      "mean_ece": 0.04140335710028619,
       "mean_draw_recall": 0.0,
-      "mean_draw_probability": 0.22586766029815056
+      "mean_draw_probability": 0.2254375881281844
     },
     {
       "rank": 13,
       "classifier_weight": 0.6000000000000001,
       "poisson_weight": 0.3999999999999999,
-      "mean_log_loss": 0.962704403778087,
-      "std_log_loss": 0.03811064058085012,
-      "mean_accuracy": 0.5491228070175439,
-      "mean_macro_f1": 0.4021110003441584,
-      "mean_brier": 0.569932569370825,
-      "mean_ece": 0.04214990028177768,
-      "mean_draw_recall": 0.0,
-      "mean_draw_probability": 0.22627552843455434
+      "mean_log_loss": 0.9621930080325046,
+      "std_log_loss": 0.038862595209453024,
+      "mean_accuracy": 0.5499999999999999,
+      "mean_macro_f1": 0.4042565110191562,
+      "mean_brier": 0.5695042014759386,
+      "mean_ece": 0.041036753033105125,
+      "mean_draw_recall": 0.002347417840375587,
+      "mean_draw_probability": 0.22596914583673625
     },
     {
       "rank": 14,
       "classifier_weight": 0.65,
       "poisson_weight": 0.35,
-      "mean_log_loss": 0.9633452574484119,
-      "std_log_loss": 0.03777256729500268,
-      "mean_accuracy": 0.5460526315789473,
-      "mean_macro_f1": 0.4026895125885616,
-      "mean_brier": 0.5703149180502642,
-      "mean_ece": 0.04540128663005588,
+      "mean_log_loss": 0.9628772318994915,
+      "std_log_loss": 0.03840004682353293,
+      "mean_accuracy": 0.5486842105263158,
+      "mean_macro_f1": 0.40441745674436635,
+      "mean_brier": 0.5699143215719891,
+      "mean_ece": 0.04331105469577857,
       "mean_draw_recall": 0.004694835680751174,
-      "mean_draw_probability": 0.22668339657095818
+      "mean_draw_probability": 0.22650070354528806
     },
     {
       "rank": 15,
       "classifier_weight": 0.7000000000000001,
       "poisson_weight": 0.29999999999999993,
-      "mean_log_loss": 0.9640683875472127,
-      "std_log_loss": 0.03743879806318135,
-      "mean_accuracy": 0.5473684210526316,
-      "mean_macro_f1": 0.40733122785410353,
-      "mean_brier": 0.5707488916513462,
-      "mean_ece": 0.04638732258166136,
-      "mean_draw_recall": 0.011397703490016405,
-      "mean_draw_probability": 0.22709126470736196
+      "mean_log_loss": 0.9636354167399173,
+      "std_log_loss": 0.03793546911029257,
+      "mean_accuracy": 0.5469298245614035,
+      "mean_macro_f1": 0.4032892653898192,
+      "mean_brier": 0.5703715063308374,
+      "mean_ece": 0.042997141181627174,
+      "mean_draw_recall": 0.004694835680751174,
+      "mean_draw_probability": 0.22703226125383988
     },
     {
       "rank": 16,
       "classifier_weight": 0.75,
       "poisson_weight": 0.25,
-      "mean_log_loss": 0.9648746599099122,
-      "std_log_loss": 0.037110508174877134,
-      "mean_accuracy": 0.5491228070175439,
-      "mean_macro_f1": 0.41009189477921487,
-      "mean_brier": 0.5712344901740708,
-      "mean_ece": 0.04592779114539137,
-      "mean_draw_recall": 0.01374512133039199,
-      "mean_draw_probability": 0.2274991328437658
+      "mean_log_loss": 0.9644679166293271,
+      "std_log_loss": 0.037469634351692926,
+      "mean_accuracy": 0.5464912280701755,
+      "mean_macro_f1": 0.4042132863020398,
+      "mean_brier": 0.5708757557524838,
+      "mean_ece": 0.04075179677069462,
+      "mean_draw_recall": 0.007042253521126761,
+      "mean_draw_probability": 0.22756381896239172
     },
     {
       "rank": 17,
       "classifier_weight": 0.8,
       "poisson_weight": 0.19999999999999996,
-      "mean_log_loss": 0.9657651462630938,
-      "std_log_loss": 0.036789007613831144,
-      "mean_accuracy": 0.5482456140350878,
-      "mean_macro_f1": 0.41055939265425617,
-      "mean_brier": 0.5717717136184383,
-      "mean_ece": 0.043453562034241826,
-      "mean_draw_recall": 0.015753153458906047,
-      "mean_draw_probability": 0.22790700098016967
+      "mean_log_loss": 0.9653752439180975,
+      "std_log_loss": 0.03700342663589344,
+      "mean_accuracy": 0.5464912280701755,
+      "mean_macro_f1": 0.40531860265692893,
+      "mean_brier": 0.5714270698369281,
+      "mean_ece": 0.04119591233530943,
+      "mean_draw_recall": 0.009389671361502348,
+      "mean_draw_probability": 0.22809537667094357
     },
     {
       "rank": 18,
       "classifier_weight": 0.8500000000000001,
       "poisson_weight": 0.1499999999999999,
-      "mean_log_loss": 0.9667411372635363,
-      "std_log_loss": 0.03647575335815033,
-      "mean_accuracy": 0.5482456140350878,
-      "mean_macro_f1": 0.4117897100400501,
-      "mean_brier": 0.5723605619844484,
-      "mean_ece": 0.04256081950447138,
-      "mean_draw_recall": 0.018100571299281634,
-      "mean_draw_probability": 0.22831486911657348
+      "mean_log_loss": 0.9663580707750999,
+      "std_log_loss": 0.03653785387386942,
+      "mean_accuracy": 0.5460526315789473,
+      "mean_macro_f1": 0.40770244435480674,
+      "mean_brier": 0.5720254485841704,
+      "mean_ece": 0.044829996197563705,
+      "mean_draw_recall": 0.016092539170767577,
+      "mean_draw_probability": 0.2286269343794954
     },
     {
       "rank": 19,
       "classifier_weight": 0.9,
       "poisson_weight": 0.09999999999999998,
-      "mean_log_loss": 0.9678041597850954,
-      "std_log_loss": 0.03617236288112956,
+      "mean_log_loss": 0.96741723307706,
+      "std_log_loss": 0.03607406194789432,
       "mean_accuracy": 0.5456140350877193,
-      "mean_macro_f1": 0.41077773436504234,
-      "mean_brier": 0.5730010352721011,
-      "mean_ece": 0.04350558026681772,
-      "mean_draw_recall": 0.02010860342779569,
-      "mean_draw_probability": 0.22872273725297723
+      "mean_macro_f1": 0.4076036611548261,
+      "mean_brier": 0.5726708919942105,
+      "mean_ece": 0.041737785042290344,
+      "mean_draw_recall": 0.016092539170767577,
+      "mean_draw_probability": 0.2291584920880472
     },
     {
       "rank": 20,
       "classifier_weight": 0.9500000000000001,
       "poisson_weight": 0.04999999999999993,
-      "mean_log_loss": 0.9689559992742991,
-      "std_log_loss": 0.03588062883657686,
-      "mean_accuracy": 0.5442982456140352,
-      "mean_macro_f1": 0.41075095961576163,
-      "mean_brier": 0.5736931334813965,
-      "mean_ece": 0.04329580987480097,
-      "mean_draw_recall": 0.022116635556309744,
-      "mean_draw_probability": 0.2291306053893811
+      "mean_log_loss": 0.9685537367027562,
+      "std_log_loss": 0.03561335118523038,
+      "mean_accuracy": 0.5429824561403509,
+      "mean_macro_f1": 0.40574234784577884,
+      "mean_brier": 0.5733634000670486,
+      "mean_ece": 0.042460637510232456,
+      "mean_draw_recall": 0.016092539170767577,
+      "mean_draw_probability": 0.22969004979659902
     },
     {
       "rank": 21,
       "classifier_weight": 1.0,
       "poisson_weight": 0.0,
-      "mean_log_loss": 0.970198728337741,
-      "std_log_loss": 0.03560253487655845,
-      "mean_accuracy": 0.5434210526315789,
-      "mean_macro_f1": 0.41258032870534994,
-      "mean_brier": 0.5744368566123347,
-      "mean_ece": 0.04735900132287516,
-      "mean_draw_recall": 0.02828367972809794,
-      "mean_draw_probability": 0.2295384735257849
+      "mean_log_loss": 0.9697687663914275,
+      "std_log_loss": 0.03515719539488642,
+      "mean_accuracy": 0.5425438596491228,
+      "mean_macro_f1": 0.40746361381891455,
+      "mean_brier": 0.5741029728026846,
+      "mean_ece": 0.04276393412187871,
+      "mean_draw_recall": 0.020787374851518752,
+      "mean_draw_probability": 0.23022160750515086
     }
   ],
   "test_classifier": {
     "rows": 380,
-    "accuracy": 0.48157894736842105,
-    "macro_f1": 0.36429348173735043,
-    "log_loss": 1.0297482572360648,
-    "brier_score": 0.6193358896710535,
-    "ece": 0.054258534195379626,
+    "accuracy": 0.49473684210526314,
+    "macro_f1": 0.3745704467353952,
+    "log_loss": 1.02473214368855,
+    "brier_score": 0.6154664881279834,
+    "ece": 0.04478636024430969,
     "draw_recall": 0.0,
     "draw_prediction_rate": 0.0,
     "actual_draw_rate": 0.2736842105263158,
-    "mean_draw_probability": 0.25249111226748444,
+    "mean_draw_probability": 0.2495154014468826,
     "confusion_matrix": [
       [
-        65,
+        67,
         0,
-        49
+        47
       ],
       [
-        47,
+        46,
         0,
-        57
+        58
       ],
       [
-        44,
+        41,
         0,
-        118
+        121
       ]
     ],
     "classification_report": {
       "A": {
-        "precision": 0.4166666666666667,
-        "recall": 0.5701754385964912,
-        "f1-score": 0.48148148148148145,
+        "precision": 0.43506493506493504,
+        "recall": 0.5877192982456141,
+        "f1-score": 0.5,
         "support": 114.0
       },
       "D": {
@@ -330,47 +333,109 @@
         "support": 104.0
       },
       "H": {
-        "precision": 0.5267857142857143,
-        "recall": 0.7283950617283951,
-        "f1-score": 0.6113989637305699,
+        "precision": 0.5353982300884956,
+        "recall": 0.7469135802469136,
+        "f1-score": 0.6237113402061856,
         "support": 162.0
       },
-      "accuracy": 0.48157894736842105,
+      "accuracy": 0.49473684210526314,
       "macro avg": {
-        "precision": 0.314484126984127,
-        "recall": 0.43285683344162873,
-        "f1-score": 0.36429348173735043,
+        "precision": 0.3234877217178102,
+        "recall": 0.44487762616417587,
+        "f1-score": 0.3745704467353952,
         "support": 380.0
       },
       "weighted avg": {
-        "precision": 0.34957706766917296,
-        "recall": 0.48157894736842105,
-        "f1-score": 0.40509347635063475,
+        "precision": 0.35876819966247075,
+        "recall": 0.49473684210526314,
+        "f1-score": 0.4158979924036897,
         "support": 380.0
       }
     }
   },
   "test_poisson": {
     "rows": 380,
-    "accuracy": 0.4868421052631579,
-    "macro_f1": 0.3606292110987321,
-    "log_loss": 1.0291072267245722,
-    "brier_score": 0.6183106685774973,
-    "ece": 0.03239800428360961,
+    "accuracy": 0.4842105263157895,
+    "macro_f1": 0.3566789538353519,
+    "log_loss": 1.0256555906627238,
+    "brier_score": 0.6153357903804257,
+    "ece": 0.03453956730246216,
     "draw_recall": 0.0,
     "draw_prediction_rate": 0.0,
     "actual_draw_rate": 0.2736842105263158,
-    "mean_draw_probability": 0.23069809495580323,
+    "mean_draw_probability": 0.23000594276782996,
     "confusion_matrix": [
       [
-        55,
+        52,
         0,
-        59
+        62
       ],
       [
-        43,
+        38,
+        0,
+        66
+      ],
+      [
+        30,
+        0,
+        132
+      ]
+    ],
+    "classification_report": {
+      "A": {
+        "precision": 0.43333333333333335,
+        "recall": 0.45614035087719296,
+        "f1-score": 0.4444444444444444,
+        "support": 114.0
+      },
+      "D": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1-score": 0.0,
+        "support": 104.0
+      },
+      "H": {
+        "precision": 0.5076923076923077,
+        "recall": 0.8148148148148148,
+        "f1-score": 0.6255924170616114,
+        "support": 162.0
+      },
+      "accuracy": 0.4842105263157895,
+      "macro avg": {
+        "precision": 0.31367521367521367,
+        "recall": 0.4236517218973359,
+        "f1-score": 0.3566789538353519,
+        "support": 380.0
+      },
+      "weighted avg": {
+        "precision": 0.34643724696356276,
+        "recall": 0.4842105263157895,
+        "f1-score": 0.4000332585017045,
+        "support": 380.0
+      }
+    }
+  },
+  "test_ensemble": {
+    "rows": 380,
+    "accuracy": 0.48157894736842105,
+    "macro_f1": 0.3556719477974106,
+    "log_loss": 1.0246443311408615,
+    "brier_score": 0.6147226452273234,
+    "ece": 0.032392322041252884,
+    "draw_recall": 0.0,
+    "draw_prediction_rate": 0.0,
+    "actual_draw_rate": 0.2736842105263158,
+    "mean_draw_probability": 0.23293236156968786,
+    "confusion_matrix": [
+      [
+        53,
         0,
         61
+      ],
+      [
+        40,
+        0,
+        64
       ],
       [
         32,
@@ -380,9 +445,9 @@
     ],
     "classification_report": {
       "A": {
-        "precision": 0.4230769230769231,
-        "recall": 0.4824561403508772,
-        "f1-score": 0.45081967213114754,
+        "precision": 0.424,
+        "recall": 0.4649122807017544,
+        "f1-score": 0.4435146443514644,
         "support": 114.0
       },
       "D": {
@@ -392,88 +457,26 @@
         "support": 104.0
       },
       "H": {
-        "precision": 0.52,
+        "precision": 0.5098039215686274,
         "recall": 0.8024691358024691,
-        "f1-score": 0.6310679611650486,
+        "f1-score": 0.6235011990407674,
         "support": 162.0
       },
-      "accuracy": 0.4868421052631579,
+      "accuracy": 0.48157894736842105,
       "macro avg": {
-        "precision": 0.31435897435897436,
-        "recall": 0.42830842538444874,
-        "f1-score": 0.3606292110987321,
+        "precision": 0.31126797385620913,
+        "recall": 0.4224604721680745,
+        "f1-score": 0.3556719477974106,
         "support": 380.0
       },
       "weighted avg": {
-        "precision": 0.34860728744939273,
-        "recall": 0.4868421052631579,
-        "f1-score": 0.40428013771497023,
+        "precision": 0.34453746130030954,
+        "recall": 0.48157894736842105,
+        "f1-score": 0.3988627992122928,
         "support": 380.0
       }
     }
   },
-  "test_ensemble": {
-    "rows": 380,
-    "accuracy": 0.48947368421052634,
-    "macro_f1": 0.36565561318036566,
-    "log_loss": 1.0276641879639907,
-    "brier_score": 0.6174669659169212,
-    "ece": 0.04505959677306211,
-    "draw_recall": 0.0,
-    "draw_prediction_rate": 0.0,
-    "actual_draw_rate": 0.2736842105263158,
-    "mean_draw_probability": 0.23614634928372355,
-    "confusion_matrix": [
-      [
-        59,
-        0,
-        55
-      ],
-      [
-        44,
-        0,
-        60
-      ],
-      [
-        35,
-        0,
-        127
-      ]
-    ],
-    "classification_report": {
-      "A": {
-        "precision": 0.427536231884058,
-        "recall": 0.5175438596491229,
-        "f1-score": 0.46825396825396826,
-        "support": 114.0
-      },
-      "D": {
-        "precision": 0.0,
-        "recall": 0.0,
-        "f1-score": 0.0,
-        "support": 104.0
-      },
-      "H": {
-        "precision": 0.5247933884297521,
-        "recall": 0.7839506172839507,
-        "f1-score": 0.6287128712871287,
-        "support": 162.0
-      },
-      "accuracy": 0.48947368421052634,
-      "macro avg": {
-        "precision": 0.31744320677127,
-        "recall": 0.43383149231102447,
-        "f1-score": 0.36565561318036566,
-        "support": 380.0
-      },
-      "weighted avg": {
-        "precision": 0.35198857726421695,
-        "recall": 0.48947368421052634,
-        "f1-score": 0.40850641455122955,
-        "support": 380.0
-      }
-    }
-  },
-  "component_disagreement_rate": 0.08421052631578947,
-  "mean_component_probability_distance": 0.034481029510656395
+  "component_disagreement_rate": 0.08947368421052632,
+  "mean_component_probability_distance": 0.031082291018822136
 }

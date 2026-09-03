@@ -235,15 +235,6 @@ class AnalyticsService:
                 "method": "recent attack blended with opponent defence and venue form",
             }
 
-        home_red = self._rolling_average(home_team, "red_cards")
-        away_red = self._rolling_average(away_team, "red_cards")
-        # Convert recent red-card rates into an approximate probability of at least one.
-        forecasts["red_card"] = {
-            "home_probability": _round(1 - np.exp(-home_red), 3),
-            "away_probability": _round(1 - np.exp(-away_red), 3),
-            "match_probability": _round(1 - np.exp(-(home_red + away_red)), 3),
-            "method": "Poisson rate from each team's last 10 matches",
-        }
         forecasts["possession"] = {
             "available": False,
             "reason": "Historical possession labels are not present in the training source.",

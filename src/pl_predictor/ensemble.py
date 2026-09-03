@@ -54,3 +54,24 @@ class ProbabilityEnsemble:
     def predict_scorelines(self, frame: pd.DataFrame) -> list[str]:
         return self.poisson_model.predict_scorelines(frame[self.poisson_features], rho=self.rho)
 
+    def scoreline_distributions(
+        self, frame: pd.DataFrame, limit: int = 5
+    ) -> list[list[dict[str, float | str]]]:
+        matrices = self.poisson_model.predict_score_matrices(
+            frame[self.poisson_features], rho=self.rho
+        )
+        output: list[list[dict[str, float | str]]] = []
+        width = matrices.shape[2]
+        for matrix in matrices:
+            indices = np.argsort(matrix, axis=None)[::-1][:limit]
+            rows: list[dict[str, float | str]] = []
+            for index in indices:
+                home, away = divmod(int(index), width)
+                rows.append(
+                    {
+                        "score": f"{home}-{away}",
+                        "probability": float(matrix[home, away]),
+                    }
+                )
+            output.append(rows)
+        return output

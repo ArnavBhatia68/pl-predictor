@@ -8,9 +8,10 @@ from pl_predictor.live import LiveFeatureState
 
 
 def _match(date: str, home: str, away: str, hg: int, ag: int, hs: int, ass: int):
+    season_start = pd.Timestamp(date).year if pd.Timestamp(date).month >= 7 else pd.Timestamp(date).year - 1
     return {
-        "season_start": 2025,
-        "season": "2025/26",
+        "season_start": season_start,
+        "season": f"{season_start}/{str(season_start + 1)[-2:]}",
         "Date": date,
         "HomeTeam": home,
         "AwayTeam": away,
@@ -70,6 +71,24 @@ class LiveFeatureTests(unittest.TestCase):
         self.assertEqual(state.active_season_label, "2026/27")
         self.assertEqual(live.loc[0, "home_season_matches_available"], 0.0)
         self.assertNotEqual(state.elo.get("Chelsea"), previous_elo)
+
+    def test_live_early_season_uses_cross_season_form(self) -> None:
+        matches = pd.DataFrame(
+            [
+                _match("2025-05-20", "Chelsea", "Arsenal", 2, 0, 15, 6),
+                _match("2025-08-15", "Chelsea", "Everton", 1, 1, 11, 7),
+            ]
+        )
+        historical = build_features(matches)
+        state = LiveFeatureState().replay(matches.iloc[:1])
+        state.prepare_season(2025, ["Chelsea", "Everton"])
+        live = state.fixture_features("Chelsea", "Everton", "2025-08-15", 2025)
+        columns = model_feature_columns(historical)
+        np.testing.assert_allclose(
+            live.loc[0, columns].to_numpy(dtype=float),
+            historical.loc[1, columns].to_numpy(dtype=float),
+            equal_nan=True,
+        )
 
 
 if __name__ == "__main__":

@@ -1,0 +1,127 @@
+{
+  "model_version": "v11",
+  "feature_count": 63,
+  "validation_seasons": [
+    2022,
+    2023,
+    2024
+  ],
+  "test_season": 2025,
+  "production_trained_through_season": 2025,
+  "selected_candidates": {
+    "shots": "poisson_linear",
+    "shots_on_target": "poisson_histogram",
+    "corners": "poisson_linear",
+    "fouls": "poisson_histogram",
+    "yellow_cards": "poisson_histogram"
+  },
+  "leaderboard": [
+    {
+      "metric": "corners",
+      "candidate": "poisson_linear",
+      "mae": 2.2411683132498994,
+      "rmse": 2.8155521549383162,
+      "poisson_deviance": 1.5734494301319533
+    },
+    {
+      "metric": "corners",
+      "candidate": "poisson_histogram",
+      "mae": 2.2657308548054096,
+      "rmse": 2.8483544555773364,
+      "poisson_deviance": 1.6043341963822322
+    },
+    {
+      "metric": "fouls",
+      "candidate": "poisson_histogram",
+      "mae": 2.8065785651985835,
+      "rmse": 3.4993524528779347,
+      "poisson_deviance": 1.1425945282239656
+    },
+    {
+      "metric": "fouls",
+      "candidate": "poisson_linear",
+      "mae": 2.837136654936042,
+      "rmse": 3.5167663956359476,
+      "poisson_deviance": 1.1565102969409702
+    },
+    {
+      "metric": "shots",
+      "candidate": "poisson_linear",
+      "mae": 3.770375301895045,
+      "rmse": 4.875747210495295,
+      "poisson_deviance": 1.8067310345491256
+    },
+    {
+      "metric": "shots",
+      "candidate": "poisson_histogram",
+      "mae": 3.7858108087526343,
+      "rmse": 4.9045119194765165,
+      "poisson_deviance": 1.8344143355449292
+    },
+    {
+      "metric": "shots_on_target",
+      "candidate": "poisson_histogram",
+      "mae": 1.8654193695315542,
+      "rmse": 2.3437109812520407,
+      "poisson_deviance": 1.2296753093945147
+    },
+    {
+      "metric": "shots_on_target",
+      "candidate": "poisson_linear",
+      "mae": 1.8994949365438876,
+      "rmse": 2.359922945290679,
+      "poisson_deviance": 1.2382033703089876
+    },
+    {
+      "metric": "yellow_cards",
+      "candidate": "poisson_histogram",
+      "mae": 1.107150569688066,
+      "rmse": 1.4062641395150977,
+      "poisson_deviance": 1.186536775555938
+    },
+    {
+      "metric": "yellow_cards",
+      "candidate": "poisson_linear",
+      "mae": 1.1082075938420972,
+      "rmse": 1.4044510528094898,
+      "poisson_deviance": 1.1755673313298973
+    }
+  ],
+  "test": {
+    "shots": {
+      "mae": 3.3637486372456182,
+      "rmse": 4.2817634773286155,
+      "poisson_deviance": 1.4810981401444376,
+      "actual_mean": 12.498684210526315,
+      "predicted_mean": 12.2773987943327
+    },
+    "shots_on_target": {
+      "mae": 1.7745497880931174,
+      "rmse": 2.173552638423463,
+      "poisson_deviance": 1.1906389182865802,
+      "actual_mean": 4.186842105263158,
+      "predicted_mean": 4.742241082758094
+    },
+    "corners": {
+      "mae": 2.130819640865118,
+      "rmse": 2.6628967460781943,
+      "poisson_deviance": 1.456344041141218,
+      "actual_mean": 4.998684210526315,
+      "predicted_mean": 5.296606064580457
+    },
+    "fouls": {
+      "mae": 2.768163505647845,
+      "rmse": 3.4304181276658934,
+      "poisson_deviance": 1.0989727220368832,
+      "actual_mean": 10.821052631578947,
+      "predicted_mean": 11.423892930374885
+    },
+    "yellow_cards": {
+      "mae": 1.0136642260936692,
+      "rmse": 1.2775861015009946,
+      "poisson_deviance": 1.0476742597880198,
+      "actual_mean": 1.8736842105263158,
+      "predicted_mean": 1.7020775008965046
+    }
+  }
+}

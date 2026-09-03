@@ -23,6 +23,7 @@ class FakePredictionService:
         self.state = SimpleNamespace(
             last_match_date=datetime(2026, 8, 31, tzinfo=UTC)
         )
+        self.model_version = "v11-standardized"
 
     def resolve_team(self, name):
         return name.removesuffix(" FC")
@@ -37,7 +38,7 @@ class FakePredictionService:
             "probabilities": {"home_win": 0.6, "draw": 0.25, "away_win": 0.15},
             "expected_goals": {"home": 1.8, "away": 0.9},
             "data_as_of": "2026-08-31",
-            "model_version": "v4-ensemble",
+            "model_version": self.model_version,
         }
 
 
@@ -149,6 +150,30 @@ class TrackingTests(unittest.TestCase):
         self.assertEqual(updated["created_at"], original["created_at"])
         self.assertEqual(updated["home_win"], original["home_win"])
         self.assertEqual(updated["predicted_home_shots"], 14.0)
+
+    def test_new_model_is_saved_as_shadow_without_replacing_official_pick(self):
+        upcoming = fixture()
+        original = self.service.predict("Chelsea", "Arsenal")
+        original["prediction"]["most_likely_outcome"] = "home_win"
+        original["model_version"] = "v10-official"
+        self.store.upsert_fixture(upcoming, "Chelsea", "Arsenal")
+        self.store.save_prediction(
+            upcoming.key,
+            original,
+            created_at=datetime(2026, 9, 8, tzinfo=UTC),
+        )
+
+        result = self.tracker.sync(
+            FakeProvider([upcoming]),
+            now=datetime(2026, 9, 8, 12, tzinfo=UTC),
+        )
+
+        official = self.store.prediction_history()[0]
+        shadows = self.store.shadow_prediction_history()
+        self.assertEqual(result["new_shadow_predictions"], 1)
+        self.assertEqual(official["model_version"], "v10-official")
+        self.assertEqual(len(shadows), 1)
+        self.assertEqual(shadows[0]["model_version"], "v11-standardized")
 
     def test_prediction_waits_for_three_day_publication_window(self):
         too_early = datetime(2026, 9, 2, 12, tzinfo=UTC)

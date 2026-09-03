@@ -101,6 +101,36 @@ class PredictionStore:
                     review_summary TEXT
                 );
 
+                CREATE TABLE IF NOT EXISTS shadow_predictions (
+                    fixture_key TEXT NOT NULL REFERENCES fixtures(fixture_key),
+                    model_version TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    data_as_of TEXT NOT NULL,
+                    home_win REAL NOT NULL,
+                    draw REAL NOT NULL,
+                    away_win REAL NOT NULL,
+                    expected_home_goals REAL NOT NULL,
+                    expected_away_goals REAL NOT NULL,
+                    predicted_outcome TEXT NOT NULL,
+                    predicted_score TEXT NOT NULL,
+                    predicted_home_shots REAL,
+                    predicted_away_shots REAL,
+                    predicted_home_shots_on_target REAL,
+                    predicted_away_shots_on_target REAL,
+                    predicted_home_corners REAL,
+                    predicted_away_corners REAL,
+                    predicted_home_fouls REAL,
+                    predicted_away_fouls REAL,
+                    predicted_home_yellow_cards REAL,
+                    predicted_away_yellow_cards REAL,
+                    actual_outcome TEXT,
+                    correct INTEGER,
+                    log_loss REAL,
+                    brier_score REAL,
+                    graded_at TEXT,
+                    PRIMARY KEY (fixture_key, model_version)
+                );
+
                 CREATE INDEX IF NOT EXISTS idx_fixtures_kickoff
                     ON fixtures(kickoff_utc);
                 CREATE INDEX IF NOT EXISTS idx_fixtures_status
@@ -412,6 +442,59 @@ class PredictionStore:
             ).fetchone()
         return row is not None
 
+    def prediction_model_version(self, fixture_key: str) -> str | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT model_version FROM predictions WHERE fixture_key=?",
+                (fixture_key,),
+            ).fetchone()
+        return str(row[0]) if row else None
+
+    def save_shadow_prediction(
+        self,
+        fixture_key: str,
+        prediction: dict[str, Any],
+        created_at: datetime | None = None,
+    ) -> bool:
+        probabilities = prediction["probabilities"]
+        expected_goals = prediction["expected_goals"]
+        result = prediction["prediction"]
+        stat_forecast = prediction.get("stat_forecast") or {}
+        with self._connect() as connection:
+            cursor = connection.execute(
+                """
+                INSERT OR IGNORE INTO shadow_predictions (
+                    fixture_key, model_version, created_at, data_as_of,
+                    home_win, draw, away_win, expected_home_goals, expected_away_goals,
+                    predicted_outcome, predicted_score,
+                    predicted_home_shots, predicted_away_shots,
+                    predicted_home_shots_on_target, predicted_away_shots_on_target,
+                    predicted_home_corners, predicted_away_corners,
+                    predicted_home_fouls, predicted_away_fouls,
+                    predicted_home_yellow_cards, predicted_away_yellow_cards
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    fixture_key,
+                    prediction["model_version"],
+                    (created_at or _utc_now()).isoformat(),
+                    prediction["data_as_of"],
+                    probabilities["home_win"],
+                    probabilities["draw"],
+                    probabilities["away_win"],
+                    expected_goals["home"],
+                    expected_goals["away"],
+                    result["most_likely_outcome"],
+                    result["most_likely_score"],
+                    *(
+                        stat_forecast.get(metric, {}).get(side)
+                        for metric in FORECAST_METRICS
+                        for side in ("home", "away")
+                    ),
+                ),
+            )
+        return cursor.rowcount == 1
+
     @staticmethod
     def _review_summary(row: sqlite3.Row, actual_stats: dict[str, Any] | None) -> str:
         labels = {
@@ -522,7 +605,46 @@ class PredictionStore:
                         row["fixture_key"],
                     ),
                 )
-        return len(rows)
+            shadow_rows = connection.execute(
+                """
+                SELECT f.fixture_key, f.home_goals, f.away_goals, s.*
+                FROM fixtures f
+                JOIN shadow_predictions s USING (fixture_key)
+                WHERE f.status IN ('FINISHED', 'AWARDED')
+                  AND f.home_goals IS NOT NULL
+                  AND f.away_goals IS NOT NULL
+                  AND s.graded_at IS NULL
+                """
+            ).fetchall()
+            for row in shadow_rows:
+                actual = _outcome(row["home_goals"], row["away_goals"])
+                probabilities = {
+                    "home_win": float(row["home_win"]),
+                    "draw": float(row["draw"]),
+                    "away_win": float(row["away_win"]),
+                }
+                probability = max(probabilities[actual], 1e-15)
+                brier = sum(
+                    (value - (1.0 if label == actual else 0.0)) ** 2
+                    for label, value in probabilities.items()
+                )
+                connection.execute(
+                    """
+                    UPDATE shadow_predictions
+                    SET actual_outcome=?, correct=?, log_loss=?, brier_score=?, graded_at=?
+                    WHERE fixture_key=? AND model_version=?
+                    """,
+                    (
+                        actual,
+                        int(row["predicted_outcome"] == actual),
+                        -math.log(probability),
+                        brier,
+                        _utc_now().isoformat(),
+                        row["fixture_key"],
+                        row["model_version"],
+                    ),
+                )
+        return len(rows) + len(shadow_rows)
 
     def upcoming(self, limit: int = 20) -> list[dict[str, Any]]:
         return self._query_rows(
@@ -610,6 +732,30 @@ class PredictionStore:
             LIMIT ?
             """,
             (limit,),
+        )
+
+    def shadow_prediction_history(self, limit: int = 100) -> list[dict[str, Any]]:
+        return self._query_rows(
+            """
+            SELECT f.*, s.*, s.created_at AS prediction_created_at
+            FROM shadow_predictions s
+            JOIN fixtures f USING (fixture_key)
+            ORDER BY f.kickoff_utc DESC
+            LIMIT ?
+            """,
+            (limit,),
+        )
+
+    def fixture_shadows(self, fixture_key: str) -> list[dict[str, Any]]:
+        return self._query_rows(
+            """
+            SELECT f.*, s.*, s.created_at AS prediction_created_at
+            FROM shadow_predictions s
+            JOIN fixtures f USING (fixture_key)
+            WHERE s.fixture_key=?
+            ORDER BY s.created_at DESC
+            """,
+            (fixture_key,),
         )
 
     def record(self, season_start: int | None = None) -> dict[str, Any]:
@@ -774,7 +920,7 @@ class FixtureTracker:
         ]
         data_stale = bool(newer_completed)
 
-        saved = predicted = skipped = prediction_blocked = stat_forecasts_backfilled = 0
+        saved = predicted = shadowed = skipped = prediction_blocked = stat_forecasts_backfilled = 0
         for fixture in fixtures:
             try:
                 home = self.service.resolve_team(fixture.home_team)
@@ -790,6 +936,24 @@ class FixtureTracker:
                 and fixture.key in official_keys
             )
             has_prediction = self.store.has_prediction(fixture.key)
+            if eligible_for_publication and has_prediction and not data_stale:
+                official_version = self.store.prediction_model_version(fixture.key)
+                current_version = getattr(self.service, "model_version", None)
+                if current_version and official_version != current_version:
+                    shadow = self.service.predict(
+                        home,
+                        away,
+                        fixture.kickoff_utc.date(),
+                        fixture.season_start,
+                    )
+                    shadow["prediction"]["most_likely_outcome"] = (
+                        "home_win"
+                        if shadow["prediction"]["most_likely_outcome"] == home
+                        else "away_win"
+                        if shadow["prediction"]["most_likely_outcome"] == away
+                        else "draw"
+                    )
+                    shadowed += int(self.store.save_shadow_prediction(fixture.key, shadow))
             if eligible_for_publication and has_prediction and self.analytics is not None:
                 stat_forecasts_backfilled += int(
                     self.store.backfill_stat_forecast(
@@ -814,7 +978,7 @@ class FixtureTracker:
                     if prediction["prediction"]["most_likely_outcome"] == away
                     else "draw"
                 )
-                stat_forecast = (
+                stat_forecast = prediction.get("stat_forecast") or (
                     self.analytics.stat_forecast(home, away)
                     if self.analytics is not None
                     else None
@@ -832,6 +996,7 @@ class FixtureTracker:
             "fetched": len(fixtures),
             "saved": saved,
             "new_predictions": predicted,
+            "new_shadow_predictions": shadowed,
             "graded": graded,
             "skipped": skipped,
             "prediction_blocked": prediction_blocked,

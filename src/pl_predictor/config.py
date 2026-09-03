@@ -37,6 +37,11 @@ V4_MODEL_PATH = MODEL_DIR / "v4_ensemble_model.joblib"
 V4_METRICS_PATH = REPORT_DIR / "v4_metrics.json"
 V4_PREDICTIONS_PATH = REPORT_DIR / "v4_test_predictions.csv"
 V4_WALK_FORWARD_PATH = REPORT_DIR / "v4_walk_forward.csv"
+V11_STAT_MODEL_PATH = MODEL_DIR / "v11_stat_models.joblib"
+V11_STAT_METRICS_PATH = REPORT_DIR / "v11_stat_metrics.json"
+V11_STAT_PREDICTIONS_PATH = REPORT_DIR / "v11_stat_test_predictions.csv"
+V11_STAT_WALK_FORWARD_PATH = REPORT_DIR / "v11_stat_walk_forward.csv"
+MODEL_VERSION = "v11-standardized"
 LIVE_DB_PATH = Path(
     os.getenv("PL_PREDICTOR_DB_PATH", str(STATE_DIR / "pl_predictor.sqlite3"))
 )

@@ -30,7 +30,6 @@ from .v3 import (
     load_goal_frame,
 )
 
-
 WEIGHTS = tuple(float(value) for value in np.linspace(0.0, 1.0, 21))
 
 
@@ -153,6 +152,7 @@ def run_v4(
     matches_path: Path = MATCHES_PATH,
     validation_seasons: tuple[int, ...] = (2018, 2019, 2020, 2021, 2022, 2023),
     test_season: int = 2025,
+    production_season: int = 2026,
     model_path: Path = V4_MODEL_PATH,
     metrics_path: Path = V4_METRICS_PATH,
     predictions_path: Path = V4_PREDICTIONS_PATH,
@@ -185,7 +185,7 @@ def run_v4(
     # The uncalibrated Poisson component can use every season before the test season.
     poisson_train = frame[frame["season_start"] < test_season].copy()
     poisson_model = fit_poisson_candidate(poisson_candidate, poisson_train, poisson_features)
-    production_model = ProbabilityEnsemble(
+    evaluation_model = ProbabilityEnsemble(
         classifier_model,
         poisson_model,
         classifier_features,
@@ -193,8 +193,8 @@ def run_v4(
         weight,
         rho,
     )
-    classifier_probabilities, poisson_probabilities = production_model.component_probabilities(test)
-    ensemble_probabilities = production_model.predict_proba(test)
+    classifier_probabilities, poisson_probabilities = evaluation_model.component_probabilities(test)
+    ensemble_probabilities = evaluation_model.predict_proba(test)
     classifier_metrics = evaluate_probabilities(test["target_int"], classifier_probabilities)
     poisson_metrics = evaluate_probabilities(test["target_int"], poisson_probabilities)
     ensemble_metrics = evaluate_probabilities(test["target_int"], ensemble_probabilities)
@@ -206,11 +206,11 @@ def run_v4(
         np.mean(np.abs(classifier_probabilities - poisson_probabilities))
     )
 
-    home_rates, away_rates = production_model.predict_goal_rates(test)
+    home_rates, away_rates = evaluation_model.predict_goal_rates(test)
     predictions = test[["season", "Date", "HomeTeam", "AwayTeam", "target"]].copy()
     predictions["expected_home_goals"] = home_rates
     predictions["expected_away_goals"] = away_rates
-    predictions["most_likely_score"] = production_model.predict_scorelines(test)
+    predictions["most_likely_score"] = evaluation_model.predict_scorelines(test)
     predictions[["v2_prob_away", "v2_prob_draw", "v2_prob_home"]] = classifier_probabilities
     predictions[["v3_prob_away", "v3_prob_draw", "v3_prob_home"]] = poisson_probabilities
     predictions[["prob_away", "prob_draw", "prob_home"]] = ensemble_probabilities
@@ -218,6 +218,24 @@ def run_v4(
     predictions["correct"] = predictions["prediction"] == predictions["target"]
     predictions.to_csv(predictions_path, index=False)
 
+    # Refit the production components after preserving the untouched test
+    # evaluation above. The final model can now use the most recently completed
+    # season when forecasting the new one.
+    production_classifier = _fit_nested_classifier(
+        frame, production_season, classifier_candidate, classifier_features
+    )
+    production_poisson_train = frame[frame["season_start"] < production_season].copy()
+    production_poisson = fit_poisson_candidate(
+        poisson_candidate, production_poisson_train, poisson_features
+    )
+    production_model = ProbabilityEnsemble(
+        production_classifier,
+        production_poisson,
+        classifier_features,
+        poisson_features,
+        weight,
+        rho,
+    )
     artifact = {
         "model": production_model,
         "classifier_candidate": classifier_candidate,
@@ -226,11 +244,16 @@ def run_v4(
         "poisson_weight": 1.0 - weight,
         "rho": rho,
         "test_season": test_season,
+        "production_season": production_season,
+        "model_version": "v11-standardized",
     }
     joblib.dump(artifact, model_path)
     metrics = {
         "validation_seasons": list(validation_seasons),
         "test_season": test_season,
+        "production_season": production_season,
+        "production_trained_through_season": production_season - 1,
+        "model_version": "v11-standardized",
         "classifier_candidate": classifier_candidate.name,
         "poisson_candidate": poisson_candidate.name,
         "rho": rho,
@@ -251,4 +274,3 @@ def run_v4(
     )
     print(f"Saved V4 model to {model_path}")
     return metrics
-

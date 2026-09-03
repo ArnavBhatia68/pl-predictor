@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import asdict, dataclass, field
+from itertools import pairwise
 from pathlib import Path
 from typing import Any
 
@@ -12,7 +13,13 @@ from sklearn.calibration import CalibratedClassifierCV
 from sklearn.frozen import FrozenEstimator
 from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import accuracy_score, classification_report, confusion_matrix, f1_score, log_loss
+from sklearn.metrics import (
+    accuracy_score,
+    classification_report,
+    confusion_matrix,
+    f1_score,
+    log_loss,
+)
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
@@ -26,7 +33,6 @@ from .config import (
     ensure_directories,
 )
 from .features import model_feature_columns
-
 
 LABELS = ["A", "D", "H"]
 TARGET_TO_INT = {label: index for index, label in enumerate(LABELS)}
@@ -61,23 +67,7 @@ class Candidate:
 
 def default_candidates() -> list[Candidate]:
     return [
-        Candidate("lr_full", "logistic", "full", params={"C": 1.0}),
         Candidate("lr_compact", "logistic", "compact", params={"C": 0.4}),
-        Candidate(
-            "lr_compact_decay5",
-            "logistic",
-            "compact",
-            half_life_years=5.0,
-            params={"C": 0.4},
-        ),
-        Candidate(
-            "lr_compact_draw110_decay5",
-            "logistic",
-            "compact",
-            half_life_years=5.0,
-            draw_weight=1.10,
-            params={"C": 0.4},
-        ),
         Candidate(
             "xgb_compact_depth2",
             "xgboost",
@@ -85,26 +75,11 @@ def default_candidates() -> list[Candidate]:
             params={"max_depth": 2, "learning_rate": 0.04, "n_estimators": 300},
         ),
         Candidate(
-            "xgb_compact_depth3_decay5",
+            "xgb_compact_decay5",
             "xgboost",
             "compact",
             half_life_years=5.0,
-            params={"max_depth": 3, "learning_rate": 0.03, "n_estimators": 350},
-        ),
-        Candidate(
-            "xgb_compact_draw110_decay5",
-            "xgboost",
-            "compact",
-            half_life_years=5.0,
-            draw_weight=1.10,
-            params={"max_depth": 3, "learning_rate": 0.03, "n_estimators": 350},
-        ),
-        Candidate(
-            "xgb_full_decay5",
-            "xgboost",
-            "full",
-            half_life_years=5.0,
-            params={"max_depth": 3, "learning_rate": 0.03, "n_estimators": 350},
+            params={"max_depth": 2, "learning_rate": 0.03, "n_estimators": 350},
         ),
     ]
 
@@ -218,7 +193,7 @@ def expected_calibration_error(
     edges = np.linspace(0.0, 1.0, bins + 1)
     total = len(y_true)
     error = 0.0
-    for lower, upper in zip(edges[:-1], edges[1:]):
+    for lower, upper in pairwise(edges):
         mask = (confidence > lower) & (confidence <= upper)
         if mask.any():
             error += mask.mean() * abs(float(correct[mask].mean()) - float(confidence[mask].mean()))
@@ -231,7 +206,7 @@ def evaluate_probabilities(y_true: pd.Series, probabilities: np.ndarray) -> dict
     matrix = confusion_matrix(truth, predictions, labels=[0, 1, 2])
     draw_total = int(matrix[1].sum())
     return {
-        "rows": int(len(truth)),
+        "rows": len(truth),
         "accuracy": float(accuracy_score(truth, predictions)),
         "macro_f1": float(f1_score(truth, predictions, average="macro", zero_division=0)),
         "log_loss": float(log_loss(truth, probabilities, labels=[0, 1, 2])),
@@ -329,23 +304,30 @@ def _global_shap_importance(
     feature_columns: list[str],
     output_path: Path,
 ) -> list[dict[str, Any]]:
-    try:
-        import shap
-    except ImportError as exc:
-        raise RuntimeError('Install explainability dependencies with: pip install -e ".[ml]"') from exc
-
     sample = frame[feature_columns].iloc[: min(500, len(frame))]
     transformed = base_model.named_steps["preprocess"].transform(sample)
     estimator = base_model.named_steps["model"]
-    if candidate.model_type == "xgboost":
-        explainer = shap.TreeExplainer(estimator)
-    else:
-        background = transformed[: min(200, len(transformed))]
-        explainer = shap.LinearExplainer(estimator, background)
-    values = np.asarray(explainer(transformed).values)
+    try:
+        import shap
+
+        if candidate.model_type == "xgboost":
+            explainer = shap.TreeExplainer(estimator)
+        else:
+            background = transformed[: min(200, len(transformed))]
+            explainer = shap.LinearExplainer(estimator, background)
+        values = np.asarray(explainer(transformed).values)
+    except ImportError:
+        # Deployment training intentionally keeps SHAP optional. Native model
+        # importance still provides a deterministic global explanation.
+        native = getattr(estimator, "feature_importances_", None)
+        if native is None:
+            native = np.abs(np.asarray(estimator.coef_)).mean(axis=0)
+        values = np.asarray(native)
 
     per_class: np.ndarray | None = None
-    if values.ndim == 2:
+    if values.ndim == 1:
+        overall = np.abs(values)
+    elif values.ndim == 2:
         overall = np.abs(values).mean(axis=0)
     elif values.ndim == 3 and values.shape[1] == len(feature_columns):
         overall = np.abs(values).mean(axis=(0, 2))

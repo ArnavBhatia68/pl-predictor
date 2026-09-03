@@ -13,6 +13,7 @@ from .features import (
     _add_differences,
     _add_summary,
     _team_match_record,
+    smoothed_season_summary,
     summarize,
 )
 
@@ -22,12 +23,14 @@ class LiveFeatureState:
     """Chronological team state used to build features for an unplayed fixture."""
 
     def __post_init__(self) -> None:
+        self.feature_state_version = 11
         self.elo = EloRatings()
         self.team_states: defaultdict[str, TeamState] = defaultdict(TeamState)
         self.active_season: int | None = None
         self.active_season_label: str | None = None
         self.last_match_date: pd.Timestamp | None = None
         self._active_teams: set[str] = set()
+        self.previous_league_summary: dict[str, float] | None = None
 
     @property
     def available_teams(self) -> list[str]:
@@ -39,7 +42,13 @@ class LiveFeatureState:
                 raise ValueError("Cannot move live feature state backward to an earlier season")
             if season_start > self.active_season:
                 self.elo.regress_to_mean()
-        self.team_states = defaultdict(TeamState)
+                previous_records = [
+                    record
+                    for state in self.team_states.values()
+                    for record in state.season
+                    if state.last_season_seen == self.active_season
+                ]
+                self.previous_league_summary = summarize(previous_records)
         self._active_teams = set()
         self.active_season = season_start
         self.active_season_label = season_label
@@ -57,6 +66,8 @@ class LiveFeatureState:
                 season_start,
                 f"{season_start:04d}/{(season_start + 1) % 100:02d}",
             )
+        for team in teams:
+            self.team_states[team].begin_season(season_start)
         self._active_teams.update(teams)
 
     def _pre_match_features(
@@ -69,6 +80,8 @@ class LiveFeatureState:
     ) -> dict[str, object]:
         home_state = self.team_states[home_team]
         away_state = self.team_states[away_team]
+        home_state.begin_season(season_start)
+        away_state.begin_season(season_start)
         features: dict[str, object] = {
             "season_start": season_start,
             "season": season_label,
@@ -84,8 +97,16 @@ class LiveFeatureState:
         _add_summary(features, "away_last10", summarize(away_state.recent))
         _add_summary(features, "home_venue_last5", summarize(home_state.home))
         _add_summary(features, "away_venue_last5", summarize(away_state.away))
-        _add_summary(features, "home_season", summarize(home_state.season))
-        _add_summary(features, "away_season", summarize(away_state.season))
+        _add_summary(
+            features,
+            "home_season",
+            smoothed_season_summary(home_state, self.previous_league_summary),
+        )
+        _add_summary(
+            features,
+            "away_season",
+            smoothed_season_summary(away_state, self.previous_league_summary),
+        )
         _add_differences(features)
         return features
 

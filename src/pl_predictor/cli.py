@@ -4,6 +4,7 @@ import argparse
 
 from .data import build_match_dataset
 from .features import build_feature_dataset
+from .stat_models import train_stat_models
 from .train import train_models
 from .v2 import run_v2
 from .v3 import run_v3
@@ -47,6 +48,13 @@ def _parser() -> argparse.ArgumentParser:
     v4.add_argument("--first-fold", type=int, default=2018)
     v4.add_argument("--last-fold", type=int, default=2023)
     v4.add_argument("--test-season", type=int, default=2025)
+    v4.add_argument("--production-season", type=int, default=2026)
+
+    stats = subparsers.add_parser("stats", help="Train V11 detailed match-stat models")
+    stats.add_argument("--first-fold", type=int, default=2022)
+    stats.add_argument("--last-fold", type=int, default=2024)
+    stats.add_argument("--test-season", type=int, default=2025)
+    stats.add_argument("--production-season", type=int, default=2026)
 
     sync = subparsers.add_parser(
         "sync-fixtures",
@@ -100,6 +108,13 @@ def main() -> None:
         run_v4(
             validation_seasons=tuple(range(args.first_fold, args.last_fold + 1)),
             test_season=args.test_season,
+            production_season=args.production_season,
+        )
+    elif args.command == "stats":
+        train_stat_models(
+            validation_seasons=tuple(range(args.first_fold, args.last_fold + 1)),
+            test_season=args.test_season,
+            production_season=args.production_season,
         )
     elif args.command == "sync-fixtures":
         from .fixtures import FootballDataOrgProvider
