@@ -400,10 +400,16 @@ class PredictionStore:
         self,
         *,
         official_fixture_keys: set[str],
+        known_upcoming_fixture_keys: set[str],
         publication_opens_at: datetime | None,
         now: datetime,
     ) -> int:
-        """Remove unplayed predictions that were locked before the publication policy allowed."""
+        """Remove only confirmed future picks that violate the publication policy.
+
+        Provider responses can occasionally be partial. A stored official pick must not be
+        removed merely because its fixture is absent from the current response; it is safe to
+        retire a non-official pick only when the provider still confirms it as upcoming.
+        """
         with self._connect() as connection:
             rows = connection.execute(
                 """
@@ -425,7 +431,10 @@ class PredictionStore:
                     and key in official_fixture_keys
                     and created_at < publication_opens_at
                 )
-                if key not in official_fixture_keys or created_too_early:
+                confirmed_later_matchweek = (
+                    key in known_upcoming_fixture_keys and key not in official_fixture_keys
+                )
+                if confirmed_later_matchweek or created_too_early:
                     retired.append((key,))
             if retired:
                 connection.executemany(
@@ -904,6 +913,7 @@ class FixtureTracker:
         )
         retired = self.store.retire_premature_future_predictions(
             official_fixture_keys=official_keys,
+            known_upcoming_fixture_keys={fixture.key for fixture in upcoming},
             publication_opens_at=opens_at if publication_open else None,
             now=now,
         )

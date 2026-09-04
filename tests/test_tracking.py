@@ -211,6 +211,28 @@ class TrackingTests(unittest.TestCase):
         self.assertEqual(result["new_predictions"], 1)
         self.assertEqual([row["fixture_key"] for row in history], [gameweek_four.key])
 
+    def test_partial_provider_response_does_not_erase_stored_official_pick(self):
+        upcoming = fixture(kickoff=datetime(2026, 9, 10, 18, tzinfo=UTC))
+        prediction = self.service.predict("Chelsea", "Arsenal")
+        prediction["prediction"]["most_likely_outcome"] = "home_win"
+        self.store.upsert_fixture(upcoming, "Chelsea", "Arsenal")
+        self.store.save_prediction(
+            upcoming.key,
+            prediction,
+            created_at=datetime(2026, 9, 8, tzinfo=UTC),
+        )
+
+        result = self.tracker.sync(
+            FakeProvider([]),
+            now=datetime(2026, 9, 8, 12, tzinfo=UTC),
+        )
+
+        self.assertEqual(result["retired_predictions"], 0)
+        self.assertEqual(
+            [row["fixture_key"] for row in self.store.prediction_history()],
+            [upcoming.key],
+        )
+
     def test_unknown_provider_team_is_skipped(self):
         class RejectingService(FakePredictionService):
             def resolve_team(self, name):
