@@ -6,7 +6,7 @@ import os
 import secrets
 import threading
 from contextlib import asynccontextmanager, suppress
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from functools import lru_cache
 from typing import Annotated, Any
 
@@ -73,6 +73,7 @@ def require_sync_key(
 
 
 _refresh_lock = threading.Lock()
+_refresh_trigger_lock = threading.Lock()
 _refresh_status: dict[str, Any] = {
     "state": "waiting",
     "started_at": None,
@@ -89,6 +90,71 @@ _player_feed_status: dict[str, Any] = {
 
 def refresh_status() -> dict[str, Any]:
     return dict(_refresh_status)
+
+
+def _run_refresh_in_background() -> None:
+    try:
+        result = refresh_live_data()
+        LOGGER.info("Triggered live refresh completed: %s", result)
+    except Exception:
+        LOGGER.exception("Triggered live refresh failed")
+
+
+def start_refresh_if_due(now: datetime | None = None) -> dict[str, Any]:
+    """Start a bounded public refresh only when the configured interval has elapsed.
+
+    The endpoint using this helper is safe for the scheduled workflow to call without
+    exposing the administrative sync key. Repeated callers cannot force extra provider
+    requests because a running refresh and a recently completed refresh are both skipped.
+    """
+    now = now or datetime.now(UTC)
+    interval_hours = float(os.getenv("AUTO_REFRESH_INTERVAL_HOURS", "0"))
+    if interval_hours <= 0:
+        return {
+            "started": False,
+            "wait_for_completion": False,
+            "reason": "automatic refresh is disabled",
+            "refresh": refresh_status(),
+        }
+
+    with _refresh_trigger_lock:
+        status = refresh_status()
+        if status.get("state") in {"queued", "running", "waiting"}:
+            return {
+                "started": False,
+                "wait_for_completion": True,
+                "reason": "refresh is already starting or running",
+                "refresh": status,
+            }
+
+        completed_at = None if status.get("state") == "error" else status.get("completed_at")
+        if completed_at:
+            completed = datetime.fromisoformat(str(completed_at))
+            if completed.tzinfo is None:
+                completed = completed.replace(tzinfo=UTC)
+            due_at = completed + timedelta(hours=interval_hours)
+            if now < due_at:
+                return {
+                    "started": False,
+                    "wait_for_completion": False,
+                    "reason": "refresh interval has not elapsed",
+                    "due_at": due_at.isoformat(),
+                    "refresh": status,
+                }
+
+        previous_completed_at = completed_at
+        _refresh_status.update(state="queued", error=None)
+        threading.Thread(
+            target=_run_refresh_in_background,
+            name="pl-predictor-live-refresh",
+            daemon=True,
+        ).start()
+        return {
+            "started": True,
+            "wait_for_completion": True,
+            "previous_completed_at": previous_completed_at,
+            "refresh": refresh_status(),
+        }
 
 
 def refresh_live_data(days_back: int = 21, days_ahead: int = 28) -> dict[str, Any]:
@@ -389,6 +455,12 @@ def dashboard(
 @app.get("/refresh-status")
 def get_refresh_status() -> dict[str, Any]:
     return refresh_status()
+
+
+@app.post("/automation/refresh-due")
+def automation_refresh_due() -> dict[str, Any]:
+    """Start at most one interval-limited refresh for the external scheduler."""
+    return start_refresh_if_due()
 
 
 @app.post("/fixtures/sync")

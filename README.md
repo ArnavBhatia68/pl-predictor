@@ -474,6 +474,12 @@ The dashboard exposes cumulative season history, per-team accuracy, log loss, Br
 goal error. Its managed database keeps every graded prediction rather than limiting history to a
 fixed number of matchweeks.
 
+The free-production reliability guard runs hourly. Each scheduled run explicitly starts a refresh
+when due, waits for that exact refresh to finish, and then merges the live ledger into the durable
+snapshot. Existing fixture keys retain their original creation time, model version, probabilities,
+scoreline, and stat forecasts; completed scores and grading fields can advance. An empty or partial
+container can therefore never erase or rewrite an official pre-kickoff prediction.
+
 The current season start is determined automatically from the calendar. At a season boundary,
 the live state regresses Elo ratings, resets season form, and can register the new fixture list
 before the first completed result exists, so no annual environment-variable edit is required.

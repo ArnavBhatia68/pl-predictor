@@ -992,6 +992,17 @@ class FixtureTracker:
                     )
                 )
         graded = self.store.grade_finished(self.analytics)
+        stored_official_keys = {
+            fixture.key
+            for fixture in official_fixtures
+            if self.store.has_prediction(fixture.key)
+        }
+        missing_official_keys = sorted(official_keys - stored_official_keys)
+        if missing_official_keys and not data_stale:
+            raise RuntimeError(
+                "Official publication window is open but predictions are missing for: "
+                + ", ".join(missing_official_keys)
+            )
         return {
             "fetched": len(fixtures),
             "saved": saved,
@@ -1004,13 +1015,14 @@ class FixtureTracker:
             "retired_predictions": retired,
             "data_stale": data_stale,
             "data_as_of": data_as_of.isoformat() if data_as_of is not None else None,
+            "missing_official_predictions": missing_official_keys,
             "publication": {
                 "policy": "next_matchweek_three_day_window",
                 "lead_days": self.publication_lead_days,
                 "next_matchday": next_matchday,
                 "opens_at": opens_at.isoformat() if opens_at is not None else None,
                 "is_open": publication_open,
-                "published_fixtures": len(official_keys) if publication_open else 0,
+                "published_fixtures": len(stored_official_keys) if publication_open else 0,
                 "total_fixtures": len(official_fixtures),
             },
         }

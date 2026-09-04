@@ -13,7 +13,7 @@ services:
       - key: PREDICTION_PUBLISH_LEAD_DAYS
         value: "3"
       - key: AUTO_REFRESH_INTERVAL_HOURS
-        value: "6"
+        value: "1"
       - key: PREDICTION_SEED_URL
         value: https://raw.githubusercontent.com/ArnavBhatia68/pl-predictor/live-data/predictions.json
       - key: PL_PREDICTOR_DB_PATH

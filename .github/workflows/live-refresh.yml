@@ -2,7 +2,7 @@ name: Keep live football data fresh
 
 on:
   schedule:
-    - cron: "17 */6 * * *"
+    - cron: "17 * * * *"
   workflow_dispatch:
 
 permissions:
@@ -16,24 +16,63 @@ jobs:
   refresh-and-snapshot:
     runs-on: ubuntu-latest
     steps:
+      - name: Check out snapshot tooling
+        uses: actions/checkout@v4
+
       - name: Wake API
-        run: curl --fail --retry 12 --retry-delay 10 --retry-all-errors --max-time 180 https://pl-predictor-api-5ie5.onrender.com/health
+        run: curl --fail --retry 20 --retry-delay 15 --retry-all-errors --max-time 600 https://pl-predictor-api-5ie5.onrender.com/health
+
+      - name: Start refresh when due
+        run: |
+          curl --fail --retry 5 --retry-delay 5 \
+            --request POST \
+            https://pl-predictor-api-5ie5.onrender.com/automation/refresh-due \
+            --output refresh-trigger.json
+          cat refresh-trigger.json
 
       - name: Wait for current data refresh
         shell: bash
         run: |
-          for attempt in {1..36}; do
+          wait_for_completion="$(jq -r '.wait_for_completion' refresh-trigger.json)"
+          previous_completed_at="$(jq -r '.previous_completed_at // .refresh.completed_at // ""' refresh-trigger.json)"
+          for attempt in {1..180}; do
             status="$(curl --silent --show-error --fail https://pl-predictor-api-5ie5.onrender.com/refresh-status || true)"
-            if echo "$status" | jq -e '.state == "ready"' >/dev/null; then
+            state="$(echo "$status" | jq -r '.state // "unknown"')"
+            completed_at="$(echo "$status" | jq -r '.completed_at // ""')"
+            if [[ "$state" == "error" ]]; then
+              echo "$status"
+              exit 1
+            fi
+            if [[ "$state" == "ready" ]] && { [[ "$wait_for_completion" != "true" ]] || [[ "$completed_at" != "$previous_completed_at" ]]; }; then
               exit 0
             fi
             sleep 10
           done
-          echo "The API did not finish refreshing within six minutes."
+          echo "The API did not finish refreshing within thirty minutes."
           exit 1
 
       - name: Download immutable prediction history
-        run: curl --fail --retry 5 --retry-delay 5 https://pl-predictor-api-5ie5.onrender.com/live-predictions?limit=1000 -o predictions.json
+        run: curl --fail --retry 5 --retry-delay 5 https://pl-predictor-api-5ie5.onrender.com/live-predictions?limit=1000 -o predictions-current.json
+
+      - name: Download durable prediction history
+        run: |
+          curl --silent --show-error --fail \
+            https://raw.githubusercontent.com/${{ github.repository }}/live-data/predictions.json \
+            --output predictions-durable.json \
+            || printf '{"predictions":[]}' > predictions-durable.json
+
+      - name: Merge without deleting official predictions
+        run: |
+          PYTHONPATH=src python -m pl_predictor.snapshot \
+            predictions-durable.json \
+            predictions-current.json \
+            predictions.json
+          durable_count="$(jq '.predictions | length' predictions-durable.json)"
+          merged_count="$(jq '.predictions | length' predictions.json)"
+          if (( merged_count < durable_count )); then
+            echo "Refusing to replace a $durable_count-row ledger with $merged_count rows."
+            exit 1
+          fi
 
       - name: Save season snapshot branch
         uses: actions/github-script@v7

@@ -239,6 +239,19 @@ class TrackingTests(unittest.TestCase):
         self.assertEqual(result["new_predictions"], 0)
         self.assertEqual(self.service.calls, 0)
 
+    def test_open_publication_window_reports_all_official_predictions_stored(self):
+        first = fixture(kickoff=datetime(2026, 9, 10, 18, tzinfo=UTC))
+        second = fixture(
+            fixture_id="2",
+            kickoff=datetime(2026, 9, 10, 20, tzinfo=UTC),
+        )
+        result = self.tracker.sync(
+            FakeProvider([first, second]),
+            now=datetime(2026, 9, 8, 12, tzinfo=UTC),
+        )
+        self.assertEqual(result["publication"]["published_fixtures"], 2)
+        self.assertEqual(result["missing_official_predictions"], [])
+
 
 if __name__ == "__main__":
     unittest.main()

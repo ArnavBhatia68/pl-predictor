@@ -12,6 +12,7 @@ from pl_predictor.api import (
     get_fixture_tracker,
     get_prediction_service,
     require_sync_key,
+    start_refresh_if_due,
 )
 
 
@@ -128,6 +129,12 @@ class ApiTests(unittest.TestCase):
             with self.assertRaises(HTTPException) as error:
                 require_sync_key("anything")
             self.assertEqual(error.exception.status_code, 503)
+
+    def test_automation_refresh_is_disabled_without_interval(self) -> None:
+        with patch.dict(environ, {"AUTO_REFRESH_INTERVAL_HOURS": "0"}, clear=False):
+            result = start_refresh_if_due()
+        self.assertFalse(result["started"])
+        self.assertFalse(result["wait_for_completion"])
 
 
 if __name__ == "__main__":
