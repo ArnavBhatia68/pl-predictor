@@ -258,6 +258,45 @@ class TrackingTests(unittest.TestCase):
             [upcoming.key],
         )
 
+    def test_finished_matches_do_not_move_matchweek_publication_window(self):
+        finished = Fixture(
+            **{
+                **fixture(
+                    "FINISHED",
+                    2,
+                    0,
+                    kickoff=datetime(2026, 9, 4, 19, tzinfo=UTC),
+                ).__dict__,
+                "matchday": 3,
+            }
+        )
+        late_fixture = Fixture(
+            **{
+                **fixture(
+                    fixture_id="2",
+                    kickoff=datetime(2026, 9, 6, 13, tzinfo=UTC),
+                ).__dict__,
+                "matchday": 3,
+            }
+        )
+        prediction = self.service.predict("Chelsea", "Arsenal")
+        prediction["prediction"]["most_likely_outcome"] = "home_win"
+        self.store.upsert_fixture(late_fixture, "Chelsea", "Arsenal")
+        self.store.save_prediction(
+            late_fixture.key,
+            prediction,
+            created_at=datetime(2026, 9, 2, 20, tzinfo=UTC),
+        )
+
+        result = self.tracker.sync(
+            FakeProvider([finished, late_fixture]),
+            now=datetime(2026, 9, 5, 20, tzinfo=UTC),
+        )
+
+        self.assertEqual(result["publication"]["opens_at"], "2026-09-01T19:00:00+00:00")
+        self.assertEqual(result["retired_predictions"], 0)
+        self.assertTrue(self.store.has_prediction(late_fixture.key))
+
     def test_unknown_provider_team_is_skipped(self):
         class RejectingService(FakePredictionService):
             def resolve_team(self, name):

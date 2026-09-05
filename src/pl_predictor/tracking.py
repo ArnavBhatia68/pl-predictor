@@ -983,8 +983,14 @@ class FixtureTracker:
                 else fixture is upcoming[0]
             )
         ]
+        official_season = official_fixtures[0].season_start if official_fixtures else None
+        matchweek_fixtures = [
+            fixture
+            for fixture in fixtures
+            if fixture.matchday == next_matchday and fixture.season_start == official_season
+        ]
         first_kickoff = min(
-            (fixture.kickoff_utc for fixture in official_fixtures),
+            (fixture.kickoff_utc for fixture in matchweek_fixtures),
             default=None,
         )
         opens_at = (
