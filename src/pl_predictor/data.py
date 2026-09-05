@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+import time
 from datetime import date
 from pathlib import Path
 from urllib.error import HTTPError, URLError
@@ -10,7 +11,6 @@ import numpy as np
 import pandas as pd
 
 from .config import MATCHES_PATH, RAW_DIR, ensure_directories
-
 
 BASE_URL = "https://www.football-data.co.uk/mmz4281/{season_code}/E0.csv"
 MIRROR_URL = (
@@ -32,13 +32,28 @@ def season_label(start_year: int) -> str:
     return f"{start_year:04d}/{(start_year + 1) % 100:02d}"
 
 
-def _fetch_bytes(url: str, timeout: int = 30) -> bytes:
+def _fetch_bytes(
+    url: str,
+    timeout: int = 30,
+    attempts: int = 3,
+    retry_delay: float = 2.0,
+) -> bytes:
     request = Request(url, headers={"User-Agent": "pl-predictor/0.1"})
-    try:
-        with urlopen(request, timeout=timeout) as response:
-            return response.read()
-    except (HTTPError, URLError) as exc:
-        raise RuntimeError(f"Could not download {url}: {exc}") from exc
+    last_error: HTTPError | URLError | None = None
+    retryable_http_codes = {408, 425, 429, 500, 502, 503, 504}
+
+    for attempt in range(1, attempts + 1):
+        try:
+            with urlopen(request, timeout=timeout) as response:
+                return response.read()
+        except (HTTPError, URLError) as exc:
+            last_error = exc
+            retryable = not isinstance(exc, HTTPError) or exc.code in retryable_http_codes
+            if attempt == attempts or not retryable:
+                break
+            time.sleep(retry_delay * (2 ** (attempt - 1)))
+
+    raise RuntimeError(f"Could not download {url}: {last_error}") from last_error
 
 
 def download_season(start_year: int, raw_dir: Path = RAW_DIR, force: bool = False) -> Path:
@@ -48,9 +63,18 @@ def download_season(start_year: int, raw_dir: Path = RAW_DIR, force: bool = Fals
     if destination.exists() and not force:
         return destination
 
-    payload = _fetch_bytes(BASE_URL.format(season_code=code))
-    if not payload.strip():
-        raise RuntimeError(f"Downloaded an empty CSV for {season_label(start_year)}")
+    try:
+        payload = _fetch_bytes(BASE_URL.format(season_code=code))
+        if not payload.strip():
+            raise RuntimeError(f"Downloaded an empty CSV for {season_label(start_year)}")
+    except RuntimeError as exc:
+        if destination.exists():
+            print(
+                f"{season_label(start_year)}: live download failed; "
+                f"using cached detailed data ({exc})"
+            )
+            return destination
+        raise
     destination.write_bytes(payload)
     return destination
 
