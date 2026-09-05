@@ -75,6 +75,25 @@ class AnalyticsTests(unittest.TestCase):
         self.assertGreater(center["stat_forecast"]["shots"]["total"], 0)
         self.assertFalse(center["stat_forecast"]["possession"]["available"])
 
+    def test_live_score_overlay_updates_table_once(self) -> None:
+        fixture = {
+            "season_start": 2026,
+            "kickoff_utc": "2026-08-24T15:00:00+00:00",
+            "status": "FINISHED",
+            "home_team": "Alpha",
+            "away_team": "Beta",
+            "home_goals": 0,
+            "away_goals": 3,
+        }
+
+        self.assertEqual(self.analytics.overlay_completed_fixtures([fixture]), 1)
+        self.assertEqual(self.analytics.overlay_completed_fixtures([fixture]), 0)
+
+        table = {row["team"]: row for row in self.analytics.table()}
+        self.assertEqual(table["Alpha"]["played"], 3)
+        self.assertEqual(table["Beta"]["points"], 4)
+        self.assertEqual(self.analytics.recent("Beta", 1)[0]["score"], "3-0")
+
 
 if __name__ == "__main__":
     unittest.main()

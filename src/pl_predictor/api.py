@@ -87,9 +87,111 @@ _player_feed_status: dict[str, Any] = {
     "reason": "Player statistics have not been refreshed yet.",
 }
 
+STAT_COMPARISON_SPECS = (
+    ("goals", "Goals (xG forecast)", "expected", 0.5),
+    ("shots", "Shots", "predicted", 2.0),
+    ("shots_on_target", "Shots on target", "predicted", 1.0),
+    ("corners", "Corners", "predicted", 1.0),
+    ("fouls", "Fouls", "predicted", 2.0),
+    ("yellow_cards", "Yellow cards", "predicted", 1.0),
+)
+
 
 def refresh_status() -> dict[str, Any]:
     return dict(_refresh_status)
+
+
+def _overlay_live_results(analytics: AnalyticsService, tracker: FixtureTracker) -> int:
+    return analytics.overlay_completed_fixtures(
+        tracker.store.completed_fixtures(analytics.season_start)
+    )
+
+
+def _comparison_value(predicted: Any, actual: Any, tolerance: float) -> dict[str, Any]:
+    if predicted is None or actual is None:
+        return {
+            "predicted": predicted,
+            "actual": actual,
+            "difference": None,
+            "absolute_error": None,
+            "assessment": "pending",
+        }
+    predicted_value = float(predicted)
+    actual_value = float(actual)
+    difference = actual_value - predicted_value
+    absolute_error = abs(difference)
+    assessment = (
+        "close"
+        if absolute_error <= tolerance
+        else "above forecast"
+        if difference > 0
+        else "below forecast"
+    )
+    return {
+        "predicted": round(predicted_value, 2),
+        "actual": round(actual_value, 2),
+        "difference": round(difference, 2),
+        "absolute_error": round(absolute_error, 2),
+        "assessment": assessment,
+    }
+
+
+def _stat_comparison(fixture: dict[str, Any]) -> dict[str, Any]:
+    finished = fixture.get("status") in {"FINISHED", "AWARDED"}
+    metrics: list[dict[str, Any]] = []
+    detailed_actuals = 0
+    for key, label, prediction_prefix, tolerance in STAT_COMPARISON_SPECS:
+        if key == "goals":
+            home_predicted = fixture.get("expected_home_goals")
+            away_predicted = fixture.get("expected_away_goals")
+            home_actual = fixture.get("home_goals")
+            away_actual = fixture.get("away_goals")
+        else:
+            home_predicted = fixture.get(f"{prediction_prefix}_home_{key}")
+            away_predicted = fixture.get(f"{prediction_prefix}_away_{key}")
+            home_actual = fixture.get(f"actual_home_{key}")
+            away_actual = fixture.get(f"actual_away_{key}")
+            detailed_actuals += int(home_actual is not None) + int(away_actual is not None)
+        home = _comparison_value(home_predicted, home_actual, tolerance)
+        away = _comparison_value(away_predicted, away_actual, tolerance)
+        predicted_total = (
+            float(home_predicted) + float(away_predicted)
+            if home_predicted is not None and away_predicted is not None
+            else None
+        )
+        actual_total = (
+            float(home_actual) + float(away_actual)
+            if home_actual is not None and away_actual is not None
+            else None
+        )
+        metrics.append(
+            {
+                "key": key,
+                "label": label,
+                "home": home,
+                "away": away,
+                "predicted_total": round(predicted_total, 2)
+                if predicted_total is not None
+                else None,
+                "actual_total": round(actual_total, 2) if actual_total is not None else None,
+                "total_absolute_error": round(abs(actual_total - predicted_total), 2)
+                if predicted_total is not None and actual_total is not None
+                else None,
+            }
+        )
+    return {
+        "available": finished and fixture.get("home_goals") is not None,
+        "detailed_stats_available": detailed_actuals > 0,
+        "reason": None
+        if detailed_actuals > 0
+        else (
+            "The final score is available; detailed observed stats will fill in automatically "
+            "when the match-statistics feed publishes them."
+            if finished
+            else "The comparison becomes available after full time."
+        ),
+        "metrics": metrics,
+    }
 
 
 def _run_refresh_in_background() -> None:
@@ -178,11 +280,14 @@ def refresh_live_data(days_back: int = 21, days_ahead: int = 28) -> dict[str, An
         get_analytics_service().reload()
         get_fixture_tracker.cache_clear()
         provider = get_fixture_provider()
-        result = get_fixture_tracker().sync(
+        tracker = get_fixture_tracker()
+        analytics = get_analytics_service()
+        result = tracker.sync(
             provider,
             days_back=days_back,
             days_ahead=days_ahead,
         )
+        result["live_results_added"] = _overlay_live_results(analytics, tracker)
         try:
             grouped: dict[str, list[dict[str, Any]]] = {}
             for scorer in provider.fetch_scorers(100):
@@ -339,6 +444,7 @@ def team_intelligence(
 ) -> dict[str, Any]:
     try:
         resolved = service.resolve_team(team)
+        _overlay_live_results(analytics, tracker)
         profile = analytics.team_profile(resolved)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
@@ -401,6 +507,7 @@ def fixture_intelligence(
     if fixture is None:
         raise HTTPException(status_code=404, detail="Fixture not found")
     try:
+        _overlay_live_results(analytics, tracker)
         intelligence = analytics.match_center(fixture["home_team"], fixture["away_team"])
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -425,6 +532,7 @@ def fixture_intelligence(
             }
     return {
         "fixture": fixture,
+        "stat_comparison": _stat_comparison(fixture),
         "shadow_predictions": tracker.store.fixture_shadows(fixture_key),
         **intelligence,
     }
@@ -436,6 +544,7 @@ def dashboard(
     analytics: AnalyticsServiceDependency,
     tracker: FixtureTrackerDependency,
 ) -> dict[str, Any]:
+    _overlay_live_results(analytics, tracker)
     return {
         "season": analytics.season_label,
         "season_start": analytics.season_start,
@@ -471,11 +580,15 @@ def sync_fixtures(
     provider: FixtureProviderDependency,
 ) -> dict[str, Any]:
     try:
-        return tracker.sync(
+        result = tracker.sync(
             provider,
             days_back=request.days_back,
             days_ahead=request.days_ahead,
         )
+        result["live_results_added"] = _overlay_live_results(
+            get_analytics_service(), tracker
+        )
+        return result
     except (ValueError, RuntimeError) as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 

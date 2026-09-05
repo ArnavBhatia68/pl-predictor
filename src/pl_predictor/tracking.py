@@ -655,6 +655,76 @@ class PredictionStore:
                 )
         return len(rows) + len(shadow_rows)
 
+    def backfill_finished_actual_stats(self, analytics: Any | None) -> int:
+        """Attach detailed observed stats after a result was already outcome-graded."""
+        if analytics is None:
+            return 0
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT f.fixture_key, f.kickoff_utc, f.home_team, f.away_team,
+                       f.home_goals, f.away_goals, p.*
+                FROM fixtures f
+                JOIN predictions p USING (fixture_key)
+                WHERE f.status IN ('FINISHED', 'AWARDED')
+                  AND p.graded_at IS NOT NULL
+                  AND (
+                    p.actual_home_shots IS NULL OR p.actual_away_shots IS NULL OR
+                    p.actual_home_shots_on_target IS NULL OR
+                    p.actual_away_shots_on_target IS NULL OR
+                    p.actual_home_corners IS NULL OR p.actual_away_corners IS NULL OR
+                    p.actual_home_fouls IS NULL OR p.actual_away_fouls IS NULL OR
+                    p.actual_home_yellow_cards IS NULL OR
+                    p.actual_away_yellow_cards IS NULL
+                  )
+                """
+            ).fetchall()
+            updated = 0
+            for row in rows:
+                actual_stats = analytics.completed_match_stats(
+                    str(row["home_team"]),
+                    str(row["away_team"]),
+                    str(row["kickoff_utc"]),
+                )
+                if not actual_stats:
+                    continue
+                combined = {
+                    f"{side}_{metric}": actual_stats.get(
+                        f"{side}_{metric}", row[f"actual_{side}_{metric}"]
+                    )
+                    for metric in FORECAST_METRICS
+                    for side in ("home", "away")
+                }
+                review = self._review_summary(row, combined)
+                connection.execute(
+                    """
+                    UPDATE predictions
+                    SET actual_home_shots=COALESCE(?, actual_home_shots),
+                        actual_away_shots=COALESCE(?, actual_away_shots),
+                        actual_home_shots_on_target=COALESCE(?, actual_home_shots_on_target),
+                        actual_away_shots_on_target=COALESCE(?, actual_away_shots_on_target),
+                        actual_home_corners=COALESCE(?, actual_home_corners),
+                        actual_away_corners=COALESCE(?, actual_away_corners),
+                        actual_home_fouls=COALESCE(?, actual_home_fouls),
+                        actual_away_fouls=COALESCE(?, actual_away_fouls),
+                        actual_home_yellow_cards=COALESCE(?, actual_home_yellow_cards),
+                        actual_away_yellow_cards=COALESCE(?, actual_away_yellow_cards),
+                        review_summary=?
+                    WHERE fixture_key=?
+                    """,
+                    (
+                        *(
+                            combined[f"{side}_{metric}"]
+                            for metric in FORECAST_METRICS
+                            for side in ("home", "away")
+                        ),
+                        review,
+                        row["fixture_key"],
+                    ),
+                )
+                updated += 1
+        return updated
+
     def upcoming(self, limit: int = 20) -> list[dict[str, Any]]:
         return self._query_rows(
             """
@@ -670,6 +740,21 @@ class PredictionStore:
             LIMIT ?
             """,
             (_utc_now().isoformat(), limit),
+        )
+
+    def completed_fixtures(self, season_start: int | None = None) -> list[dict[str, Any]]:
+        season_clause = "AND season_start=?" if season_start is not None else ""
+        parameters: tuple[Any, ...] = (season_start,) if season_start is not None else ()
+        return self._query_rows(
+            f"""
+            SELECT * FROM fixtures
+            WHERE status IN ('FINISHED', 'AWARDED')
+              AND home_goals IS NOT NULL
+              AND away_goals IS NOT NULL
+              {season_clause}
+            ORDER BY kickoff_utc
+            """,
+            parameters,
         )
 
     def fixture(self, fixture_key: str) -> dict[str, Any] | None:
@@ -1002,6 +1087,7 @@ class FixtureTracker:
                     )
                 )
         graded = self.store.grade_finished(self.analytics)
+        actual_stats_backfilled = self.store.backfill_finished_actual_stats(self.analytics)
         stored_official_keys = {
             fixture.key
             for fixture in official_fixtures
@@ -1019,6 +1105,7 @@ class FixtureTracker:
             "new_predictions": predicted,
             "new_shadow_predictions": shadowed,
             "graded": graded,
+            "actual_stats_backfilled": actual_stats_backfilled,
             "skipped": skipped,
             "prediction_blocked": prediction_blocked,
             "stat_forecasts_backfilled": stat_forecasts_backfilled,

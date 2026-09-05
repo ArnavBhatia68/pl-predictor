@@ -151,6 +151,31 @@ class TrackingTests(unittest.TestCase):
         self.assertEqual(updated["home_win"], original["home_win"])
         self.assertEqual(updated["predicted_home_shots"], 14.0)
 
+    def test_detailed_actual_stats_backfill_after_outcome_was_already_graded(self):
+        self.tracker.analytics = FakeAnalytics()
+        before_kickoff = datetime(2026, 9, 8, 12, tzinfo=UTC)
+        self.tracker.sync(FakeProvider([fixture()]), now=before_kickoff)
+
+        self.tracker.analytics = None
+        completed = fixture("FINISHED", 2, 0)
+        first_result = self.tracker.sync(
+            FakeProvider([completed]),
+            now=datetime(2026, 9, 11, 12, tzinfo=UTC),
+        )
+        self.assertEqual(first_result["graded"], 1)
+        self.assertIsNone(self.store.prediction_history()[0]["actual_home_shots"])
+
+        self.tracker.analytics = FakeAnalytics()
+        second_result = self.tracker.sync(
+            FakeProvider([completed]),
+            now=datetime(2026, 9, 11, 13, tzinfo=UTC),
+        )
+        updated = self.store.prediction_history()[0]
+        self.assertEqual(second_result["graded"], 0)
+        self.assertEqual(second_result["actual_stats_backfilled"], 1)
+        self.assertEqual(updated["actual_home_shots"], 18.0)
+        self.assertIn("Largest statistical misses", updated["review_summary"])
+
     def test_new_model_is_saved_as_shadow_without_replacing_official_pick(self):
         upcoming = fixture()
         original = self.service.predict("Chelsea", "Arsenal")

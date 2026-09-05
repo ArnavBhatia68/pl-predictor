@@ -53,6 +53,61 @@ class AnalyticsService:
         self.season_start = latest_season
         self.season_label = str(self.current["season"].iloc[-1])
 
+    def overlay_completed_fixtures(self, fixtures: list[dict[str, Any]]) -> int:
+        """Add provider-confirmed results that the detailed statistics feed has not published.
+
+        The fixture provider usually publishes the final score first. These score-only rows keep
+        standings, recent form, and team records current while the richer match row catches up.
+        Repeated refreshes are idempotent, and a real detailed row always wins over an overlay.
+        """
+        additions: list[dict[str, Any]] = []
+        for fixture in fixtures:
+            if int(fixture.get("season_start", -1)) != self.season_start:
+                continue
+            if fixture.get("status") not in {"FINISHED", "AWARDED"}:
+                continue
+            if fixture.get("home_goals") is None or fixture.get("away_goals") is None:
+                continue
+
+            kickoff = pd.Timestamp(str(fixture["kickoff_utc"])).tz_localize(None).normalize()
+            home_team = str(fixture["home_team"])
+            away_team = str(fixture["away_team"])
+            existing = self.current[
+                (self.current["HomeTeam"] == home_team)
+                & (self.current["AwayTeam"] == away_team)
+                & ((self.current["Date"].dt.normalize() - kickoff).abs() <= pd.Timedelta(days=1))
+            ]
+            if not existing.empty:
+                continue
+
+            home_goals = int(fixture["home_goals"])
+            away_goals = int(fixture["away_goals"])
+            row = {column: np.nan for column in self.matches.columns}
+            row.update(
+                {
+                    "season_start": self.season_start,
+                    "season": self.season_label,
+                    "Date": kickoff,
+                    "HomeTeam": home_team,
+                    "AwayTeam": away_team,
+                    "FTHG": home_goals,
+                    "FTAG": away_goals,
+                    "FTR": "H" if home_goals > away_goals else "D" if home_goals == away_goals else "A",
+                }
+            )
+            additions.append(row)
+
+        if not additions:
+            return 0
+        added = pd.DataFrame(additions, columns=self.matches.columns)
+        self.matches = (
+            pd.concat([self.matches, added], ignore_index=True)
+            .sort_values(["Date", "HomeTeam", "AwayTeam"], kind="stable")
+            .reset_index(drop=True)
+        )
+        self.current = self.matches[self.matches["season_start"] == self.season_start].copy()
+        return len(additions)
+
     @property
     def teams(self) -> list[str]:
         return sorted(set(self.current["HomeTeam"]) | set(self.current["AwayTeam"]))

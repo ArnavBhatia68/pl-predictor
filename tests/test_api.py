@@ -7,6 +7,7 @@ from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 from pl_predictor.api import (
+    _stat_comparison,
     app,
     get_fixture_provider,
     get_fixture_tracker,
@@ -39,6 +40,9 @@ class StubService:
 
 
 class StubStore:
+    def completed_fixtures(self, season_start=None):
+        return []
+
     def upcoming(self, limit=20):
         return [{"fixture_key": "test:1"}][:limit]
 
@@ -135,6 +139,27 @@ class ApiTests(unittest.TestCase):
             result = start_refresh_if_due()
         self.assertFalse(result["started"])
         self.assertFalse(result["wait_for_completion"])
+
+    def test_completed_fixture_stat_comparison_is_deterministic(self) -> None:
+        report = _stat_comparison(
+            {
+                "status": "FINISHED",
+                "home_goals": 0,
+                "away_goals": 2,
+                "expected_home_goals": 0.9,
+                "expected_away_goals": 2.8,
+                "predicted_home_shots": 11.0,
+                "predicted_away_shots": 18.0,
+                "actual_home_shots": 8.0,
+                "actual_away_shots": 20.0,
+            }
+        )
+
+        shots = next(metric for metric in report["metrics"] if metric["key"] == "shots")
+        self.assertTrue(report["available"])
+        self.assertTrue(report["detailed_stats_available"])
+        self.assertEqual(shots["home"]["difference"], -3.0)
+        self.assertEqual(shots["away"]["assessment"], "close")
 
 
 if __name__ == "__main__":
